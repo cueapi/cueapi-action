@@ -1,0 +1,132 @@
+name: 'CueAPI'
+description: 'Schedule and verify AI agent jobs from your GitHub Actions workflows using CueAPI.'
+author: 'CueAPI'
+branding:
+  icon: 'clock'
+  color: 'purple'
+
+inputs:
+  command:
+    description: 'CueAPI CLI command to run (create, list, get, update, delete, pause, resume, whoami)'
+    required: true
+  name:
+    description: 'Cue name (for create/update)'
+    required: false
+  cron:
+    description: 'Cron expression for recurring cue (for create/update)'
+    required: false
+  at:
+    description: 'ISO timestamp for one-time cue (for create)'
+    required: false
+  url:
+    description: 'Callback URL (for create/update)'
+    required: false
+  method:
+    description: 'HTTP method (default: POST)'
+    required: false
+    default: 'POST'
+  timezone:
+    description: 'Timezone (default: UTC)'
+    required: false
+    default: 'UTC'
+  payload:
+    description: 'JSON payload string (for create/update)'
+    required: false
+  description:
+    description: 'Cue description (for create/update)'
+    required: false
+  worker:
+    description: 'Use worker transport (no public URL needed). Set to "true" to enable.'
+    required: false
+    default: 'false'
+  cue-id:
+    description: 'Target cue ID (for get/update/delete/pause/resume)'
+    required: false
+  status:
+    description: 'Filter by status for list command (active/paused)'
+    required: false
+  limit:
+    description: 'Max results for list command'
+    required: false
+  api-key:
+    description: 'CueAPI API key. Prefer passing via CUEAPI_API_KEY env var from a secret.'
+    required: false
+  cli-version:
+    description: 'Pin a specific cueapi CLI version (e.g. "0.1.0"). Default: latest.'
+    required: false
+
+outputs:
+  result:
+    description: 'Raw stdout from the cueapi CLI invocation'
+    value: ${{ steps.run.outputs.result }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install cueapi CLI
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.cli-version }}" ]; then
+          python -m pip install --quiet "cueapi==${{ inputs.cli-version }}"
+        else
+          python -m pip install --quiet cueapi
+        fi
+        cueapi --version
+
+    - name: Run cueapi ${{ inputs.command }}
+      id: run
+      shell: bash
+      env:
+        CUEAPI_API_KEY: ${{ inputs.api-key || env.CUEAPI_API_KEY }}
+      run: |
+        set -euo pipefail
+        cmd=(cueapi "${{ inputs.command }}")
+
+        case "${{ inputs.command }}" in
+          create)
+            [ -n "${{ inputs.name }}" ]        && cmd+=(--name "${{ inputs.name }}")
+            [ -n "${{ inputs.cron }}" ]        && cmd+=(--cron "${{ inputs.cron }}")
+            [ -n "${{ inputs.at }}" ]          && cmd+=(--at "${{ inputs.at }}")
+            [ -n "${{ inputs.url }}" ]         && cmd+=(--url "${{ inputs.url }}")
+            [ -n "${{ inputs.method }}" ]      && cmd+=(--method "${{ inputs.method }}")
+            [ -n "${{ inputs.timezone }}" ]    && cmd+=(--timezone "${{ inputs.timezone }}")
+            [ -n "${{ inputs.payload }}" ]     && cmd+=(--payload "${{ inputs.payload }}")
+            [ -n "${{ inputs.description }}" ] && cmd+=(--description "${{ inputs.description }}")
+            [ "${{ inputs.worker }}" = "true" ] && cmd+=(--worker)
+            ;;
+          update)
+            [ -n "${{ inputs.cue-id }}" ]      && cmd+=("${{ inputs.cue-id }}")
+            [ -n "${{ inputs.name }}" ]        && cmd+=(--name "${{ inputs.name }}")
+            [ -n "${{ inputs.cron }}" ]        && cmd+=(--cron "${{ inputs.cron }}")
+            [ -n "${{ inputs.url }}" ]         && cmd+=(--url "${{ inputs.url }}")
+            [ -n "${{ inputs.payload }}" ]     && cmd+=(--payload "${{ inputs.payload }}")
+            [ -n "${{ inputs.description }}" ] && cmd+=(--description "${{ inputs.description }}")
+            ;;
+          get|delete|pause|resume)
+            [ -n "${{ inputs.cue-id }}" ]      && cmd+=("${{ inputs.cue-id }}")
+            ;;
+          list)
+            [ -n "${{ inputs.status }}" ]      && cmd+=(--status "${{ inputs.status }}")
+            [ -n "${{ inputs.limit }}" ]       && cmd+=(--limit "${{ inputs.limit }}")
+            ;;
+          whoami|usage)
+            ;;
+          *)
+            echo "::error::Unsupported command '${{ inputs.command }}'. Supported: create, list, get, update, delete, pause, resume, whoami, usage."
+            exit 1
+            ;;
+        esac
+
+        echo "Running: ${cmd[*]}"
+        output=$("${cmd[@]}" 2>&1)
+        echo "$output"
+        {
+          echo 'result<<CUEAPI_EOF'
+          echo "$output"
+          echo 'CUEAPI_EOF'
+        } >> "$GITHUB_OUTPUT"

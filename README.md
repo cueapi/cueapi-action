@@ -1,15 +1,15 @@
 # CueAPI GitHub Action
 
-Schedule and verify AI agent jobs from your GitHub Actions workflows using [CueAPI](https://cueapi.ai) — the open-source execution accountability primitive for AI agents.
+Schedule and verify AI agent jobs from your GitHub Actions workflows using [CueAPI](https://cueapi.ai), the open-source coordination layer for AI agent systems.
 
-CueAPI lets you schedule agent work on a cue, require evidence-backed outcome reports, and gate execution with write-once verification — making silent agent failure impossible. This action wraps the [`cueapi` Python CLI](https://pypi.org/project/cueapi/) so your CI can create, inspect, and manage cues without bespoke scripts.
+CueAPI lets you schedule agent work on a cue, require evidence-backed outcome reports, and gate execution with write-once verification. Every handoff between your CI and your agent is recorded with proof. This action wraps the [`cueapi` Python CLI](https://pypi.org/project/cueapi/) so your CI can create, inspect, and manage cues without bespoke scripts.
 
 ## Why use this action
 
 - **Schedule agent runs from CI.** Promote a cue on every release. Pause a cue when a branch is deleted. Rotate payloads on a schedule.
-- **Works with any agent runtime.** Claude Code, Codex, Gemini CLI, or your own custom worker — CueAPI is transport-agnostic.
+- **Works with any agent runtime.** Claude Code, Codex, Gemini CLI, or your own custom worker. CueAPI is transport-agnostic.
 - **Self-hosted or hosted.** Point at `api.cueapi.ai` or your own CueAPI instance via `CUEAPI_API_KEY` / base URL config.
-- **Composable.** Compose with any other action — use the `result` output to gate downstream steps, post comments, or trigger Slack notifications.
+- **Composable.** Compose with any other action. Use the `result` output to gate downstream steps, post comments, or trigger Slack notifications.
 
 ## Quick start
 

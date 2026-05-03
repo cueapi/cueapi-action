@@ -41,6 +41,8 @@ jobs:
 
 ## Supported commands
 
+Cue management:
+
 | Command  | Purpose                                      |
 |----------|----------------------------------------------|
 | `create` | Create a new cue (recurring or one-time)     |
@@ -50,8 +52,21 @@ jobs:
 | `delete` | Delete a cue                                 |
 | `pause`  | Pause a cue                                  |
 | `resume` | Resume a paused cue                          |
+| `fire`   | Fire an existing cue immediately, optional `payload-override` |
 | `whoami` | Print authenticated identity                 |
 | `usage`  | Show current usage stats                     |
+
+Worker-execution lifecycle (cueapi 0.2.0+):
+
+| Command                       | Purpose                                                                |
+|-------------------------------|------------------------------------------------------------------------|
+| `executions-list`             | List historical executions, filter by `cue-id` / `status`              |
+| `executions-list-claimable`   | List unclaimed worker executions, filter by `task` / `agent` (server-side) |
+| `executions-get`              | Fetch one execution by ID                                              |
+| `executions-claim`            | Atomically claim a specific execution (`worker-id` required)           |
+| `executions-claim-next`       | Claim the next available execution (optional `task` filter)            |
+| `executions-heartbeat`        | Extend the claim lease on an in-flight execution                       |
+| `executions-report-outcome`   | Report a write-once outcome (`success: true|false` + optional evidence) |
 
 ## Inputs
 
@@ -67,11 +82,22 @@ jobs:
 | `payload`     | no       | JSON payload string                                                |
 | `description` | no       | Human-readable cue description                                     |
 | `worker`      | no       | Set `"true"` to use worker transport (no public URL)               |
-| `cue-id`      | no       | Target cue ID (get/update/delete/pause/resume)                     |
-| `status`      | no       | Status filter for `list` (`active` / `paused`)                     |
-| `limit`       | no       | Max results for `list`                                             |
+| `cue-id`      | no       | Target cue ID (get/update/delete/pause/resume/fire/executions-list) |
+| `status`      | no       | Status filter for `list` (`active`/`paused`) or `executions-list`  |
+| `limit`       | no       | Max results for `list` / `executions-list`                          |
+| `offset`      | no       | Pagination offset for `list` / `executions-list`                   |
 | `api-key`     | no       | Override API key (prefer `CUEAPI_API_KEY` env from a secret)       |
 | `cli-version` | no       | Pin a specific `cueapi` CLI version (default: latest)              |
+| `payload-override` | no  | JSON payload override for `fire`                                   |
+| `merge-strategy` | no    | `merge` (default) or `replace` for `fire`                          |
+| `execution-id` | no      | Target execution ID (executions-get/claim/heartbeat/report-outcome) |
+| `worker-id`   | no       | Stable worker identifier (executions-claim/claim-next/heartbeat)   |
+| `task`        | no       | Task filter for executions-list-claimable / executions-claim-next  |
+| `agent`       | no       | Agent filter for executions-list-claimable                          |
+| `success`     | no       | `true`/`false` for executions-report-outcome                       |
+| `external-id` | no       | External system ID for executions-report-outcome                    |
+| `result-url`  | no       | Public URL evidence for executions-report-outcome                   |
+| `summary`     | no       | Short human summary for executions-report-outcome (max 500 chars)  |
 
 ## Outputs
 

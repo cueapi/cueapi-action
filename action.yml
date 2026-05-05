@@ -68,11 +68,22 @@ runs:
       with:
         python-version: '3.11'
 
+    # Inputs are passed via env vars (not direct ${{ inputs.X }}
+    # interpolation into the shell script) to avoid GitHub Actions'
+    # documented shell-injection vector. With direct interpolation, a
+    # workflow caller passing e.g. `name: '"; rm -rf /; #'` would get
+    # arbitrary shell execution at the runner. Bash quotes env-var
+    # expansions automatically, so `"$NAME"` is safe regardless of the
+    # caller's input. See:
+    # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
+
     - name: Install cueapi CLI
       shell: bash
+      env:
+        CLI_VERSION: ${{ inputs.cli-version }}
       run: |
-        if [ -n "${{ inputs.cli-version }}" ]; then
-          python -m pip install --quiet "cueapi==${{ inputs.cli-version }}"
+        if [ -n "$CLI_VERSION" ]; then
+          python -m pip install --quiet "cueapi==$CLI_VERSION"
         else
           python -m pip install --quiet cueapi
         fi
@@ -83,41 +94,57 @@ runs:
       shell: bash
       env:
         CUEAPI_API_KEY: ${{ inputs.api-key || env.CUEAPI_API_KEY }}
+        # All caller-supplied inputs flow through env vars from here on.
+        # Adding a new input? Declare it here AND reference it as $VAR_NAME
+        # in the script — never as ${{ inputs.X }} inside `run:`.
+        COMMAND: ${{ inputs.command }}
+        NAME: ${{ inputs.name }}
+        CRON: ${{ inputs.cron }}
+        AT: ${{ inputs.at }}
+        URL: ${{ inputs.url }}
+        METHOD: ${{ inputs.method }}
+        TIMEZONE: ${{ inputs.timezone }}
+        PAYLOAD: ${{ inputs.payload }}
+        DESCRIPTION: ${{ inputs.description }}
+        WORKER: ${{ inputs.worker }}
+        CUE_ID: ${{ inputs.cue-id }}
+        STATUS: ${{ inputs.status }}
+        LIMIT: ${{ inputs.limit }}
       run: |
         set -euo pipefail
-        cmd=(cueapi "${{ inputs.command }}")
+        cmd=(cueapi "$COMMAND")
 
-        case "${{ inputs.command }}" in
+        case "$COMMAND" in
           create)
-            [ -n "${{ inputs.name }}" ]        && cmd+=(--name "${{ inputs.name }}")
-            [ -n "${{ inputs.cron }}" ]        && cmd+=(--cron "${{ inputs.cron }}")
-            [ -n "${{ inputs.at }}" ]          && cmd+=(--at "${{ inputs.at }}")
-            [ -n "${{ inputs.url }}" ]         && cmd+=(--url "${{ inputs.url }}")
-            [ -n "${{ inputs.method }}" ]      && cmd+=(--method "${{ inputs.method }}")
-            [ -n "${{ inputs.timezone }}" ]    && cmd+=(--timezone "${{ inputs.timezone }}")
-            [ -n "${{ inputs.payload }}" ]     && cmd+=(--payload "${{ inputs.payload }}")
-            [ -n "${{ inputs.description }}" ] && cmd+=(--description "${{ inputs.description }}")
-            [ "${{ inputs.worker }}" = "true" ] && cmd+=(--worker)
+            [ -n "$NAME" ]        && cmd+=(--name "$NAME")
+            [ -n "$CRON" ]        && cmd+=(--cron "$CRON")
+            [ -n "$AT" ]          && cmd+=(--at "$AT")
+            [ -n "$URL" ]         && cmd+=(--url "$URL")
+            [ -n "$METHOD" ]      && cmd+=(--method "$METHOD")
+            [ -n "$TIMEZONE" ]    && cmd+=(--timezone "$TIMEZONE")
+            [ -n "$PAYLOAD" ]     && cmd+=(--payload "$PAYLOAD")
+            [ -n "$DESCRIPTION" ] && cmd+=(--description "$DESCRIPTION")
+            [ "$WORKER" = "true" ] && cmd+=(--worker)
             ;;
           update)
-            [ -n "${{ inputs.cue-id }}" ]      && cmd+=("${{ inputs.cue-id }}")
-            [ -n "${{ inputs.name }}" ]        && cmd+=(--name "${{ inputs.name }}")
-            [ -n "${{ inputs.cron }}" ]        && cmd+=(--cron "${{ inputs.cron }}")
-            [ -n "${{ inputs.url }}" ]         && cmd+=(--url "${{ inputs.url }}")
-            [ -n "${{ inputs.payload }}" ]     && cmd+=(--payload "${{ inputs.payload }}")
-            [ -n "${{ inputs.description }}" ] && cmd+=(--description "${{ inputs.description }}")
+            [ -n "$CUE_ID" ]      && cmd+=("$CUE_ID")
+            [ -n "$NAME" ]        && cmd+=(--name "$NAME")
+            [ -n "$CRON" ]        && cmd+=(--cron "$CRON")
+            [ -n "$URL" ]         && cmd+=(--url "$URL")
+            [ -n "$PAYLOAD" ]     && cmd+=(--payload "$PAYLOAD")
+            [ -n "$DESCRIPTION" ] && cmd+=(--description "$DESCRIPTION")
             ;;
           get|delete|pause|resume)
-            [ -n "${{ inputs.cue-id }}" ]      && cmd+=("${{ inputs.cue-id }}")
+            [ -n "$CUE_ID" ]      && cmd+=("$CUE_ID")
             ;;
           list)
-            [ -n "${{ inputs.status }}" ]      && cmd+=(--status "${{ inputs.status }}")
-            [ -n "${{ inputs.limit }}" ]       && cmd+=(--limit "${{ inputs.limit }}")
+            [ -n "$STATUS" ]      && cmd+=(--status "$STATUS")
+            [ -n "$LIMIT" ]       && cmd+=(--limit "$LIMIT")
             ;;
           whoami|usage)
             ;;
           *)
-            echo "::error::Unsupported command '${{ inputs.command }}'. Supported: create, list, get, update, delete, pause, resume, whoami, usage."
+            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage."
             exit 1
             ;;
         esac

@@ -7,8 +7,17 @@ branding:
 
 inputs:
   command:
-    description: 'CueAPI CLI command to run (create, list, get, update, delete, pause, resume, whoami)'
+    description: |
+      CueAPI CLI command to run. Cue management:
+        create, list, get, update, delete, pause, resume, whoami, usage,
+        fire
+      Worker-execution lifecycle (introduced in cueapi 0.2.0):
+        executions-list, executions-list-claimable, executions-get,
+        executions-claim, executions-claim-next, executions-heartbeat,
+        executions-report-outcome
     required: true
+
+  # Cue management inputs (existing).
   name:
     description: 'Cue name (for create/update)'
     required: false
@@ -40,19 +49,56 @@ inputs:
     required: false
     default: 'false'
   cue-id:
-    description: 'Target cue ID (for get/update/delete/pause/resume)'
+    description: 'Target cue ID (for get/update/delete/pause/resume/fire/executions-list)'
     required: false
   status:
-    description: 'Filter by status for list command (active/paused)'
+    description: 'Filter by status (active/paused for list; execution status for executions-list)'
     required: false
   limit:
-    description: 'Max results for list command'
+    description: 'Max results for list / executions-list'
+    required: false
+  offset:
+    description: 'Offset for list / executions-list pagination'
     required: false
   api-key:
     description: 'CueAPI API key. Prefer passing via CUEAPI_API_KEY env var from a secret.'
     required: false
   cli-version:
-    description: 'Pin a specific cueapi CLI version (e.g. "0.1.0"). Default: latest.'
+    description: 'Pin a specific cueapi CLI version (e.g. "0.2.0"). Default: latest.'
+    required: false
+
+  # Fire inputs (cueapi 0.2.0+).
+  payload-override:
+    description: 'JSON payload override for `fire` (overrides the cue stored payload for this fire only)'
+    required: false
+  merge-strategy:
+    description: 'How payload-override combines with the cue stored payload: merge (default, server-side) or replace'
+    required: false
+
+  # Executions lifecycle inputs (cueapi 0.2.0+).
+  execution-id:
+    description: 'Target execution ID (for executions-get/claim/heartbeat/report-outcome)'
+    required: false
+  worker-id:
+    description: 'Stable worker identifier (required for executions-claim, executions-claim-next, executions-heartbeat)'
+    required: false
+  task:
+    description: 'Task filter for executions-list-claimable / executions-claim-next (server-side SQL filter)'
+    required: false
+  agent:
+    description: 'Agent filter for executions-list-claimable (server-side SQL filter)'
+    required: false
+  success:
+    description: 'Outcome success flag for executions-report-outcome: "true" or "false"'
+    required: false
+  external-id:
+    description: 'External system ID for executions-report-outcome (e.g. PR number, doc ID)'
+    required: false
+  result-url:
+    description: 'Public URL for executions-report-outcome evidence (e.g. tweet, PR, doc)'
+    required: false
+  summary:
+    description: 'Short human summary for executions-report-outcome (max 500 chars)'
     required: false
 
 outputs:
@@ -110,6 +156,18 @@ runs:
         CUE_ID: ${{ inputs.cue-id }}
         STATUS: ${{ inputs.status }}
         LIMIT: ${{ inputs.limit }}
+        OFFSET: ${{ inputs.offset }}
+        # Fire + executions inputs (cueapi 0.2.0+).
+        PAYLOAD_OVERRIDE: ${{ inputs.payload-override }}
+        MERGE_STRATEGY: ${{ inputs.merge-strategy }}
+        EXECUTION_ID: ${{ inputs.execution-id }}
+        WORKER_ID: ${{ inputs.worker-id }}
+        TASK: ${{ inputs.task }}
+        AGENT: ${{ inputs.agent }}
+        SUCCESS: ${{ inputs.success }}
+        EXTERNAL_ID: ${{ inputs.external-id }}
+        RESULT_URL: ${{ inputs.result-url }}
+        SUMMARY: ${{ inputs.summary }}
       run: |
         set -euo pipefail
         cmd=(cueapi "$COMMAND")
@@ -140,11 +198,65 @@ runs:
           list)
             [ -n "$STATUS" ]      && cmd+=(--status "$STATUS")
             [ -n "$LIMIT" ]       && cmd+=(--limit "$LIMIT")
+            [ -n "$OFFSET" ]      && cmd+=(--offset "$OFFSET")
             ;;
           whoami|usage)
             ;;
+          fire)
+            [ -n "$CUE_ID" ]           && cmd+=("$CUE_ID")
+            [ -n "$PAYLOAD_OVERRIDE" ] && cmd+=(--payload-override "$PAYLOAD_OVERRIDE")
+            [ -n "$MERGE_STRATEGY" ]   && cmd+=(--merge-strategy "$MERGE_STRATEGY")
+            ;;
+          # Executions subgroup (cueapi 0.2.0+) — these commands map to
+          # ``cueapi executions <sub>`` (group + subcommand). Override
+          # the default ``cmd=(cueapi "$COMMAND")`` because COMMAND
+          # carries a hyphenated name (e.g. "executions-list") and the
+          # CLI expects the words separated.
+          executions-list)
+            cmd=(cueapi executions list)
+            [ -n "$CUE_ID" ]      && cmd+=(--cue-id "$CUE_ID")
+            [ -n "$STATUS" ]      && cmd+=(--status "$STATUS")
+            [ -n "$LIMIT" ]       && cmd+=(--limit "$LIMIT")
+            [ -n "$OFFSET" ]      && cmd+=(--offset "$OFFSET")
+            ;;
+          executions-list-claimable)
+            cmd=(cueapi executions list-claimable)
+            [ -n "$TASK" ]        && cmd+=(--task "$TASK")
+            [ -n "$AGENT" ]       && cmd+=(--agent "$AGENT")
+            ;;
+          executions-get)
+            cmd=(cueapi executions get)
+            [ -n "$EXECUTION_ID" ] && cmd+=("$EXECUTION_ID")
+            ;;
+          executions-claim)
+            cmd=(cueapi executions claim)
+            [ -n "$EXECUTION_ID" ] && cmd+=("$EXECUTION_ID")
+            [ -n "$WORKER_ID" ]    && cmd+=(--worker-id "$WORKER_ID")
+            ;;
+          executions-claim-next)
+            cmd=(cueapi executions claim-next)
+            [ -n "$WORKER_ID" ]    && cmd+=(--worker-id "$WORKER_ID")
+            [ -n "$TASK" ]         && cmd+=(--task "$TASK")
+            ;;
+          executions-heartbeat)
+            cmd=(cueapi executions heartbeat)
+            [ -n "$EXECUTION_ID" ] && cmd+=("$EXECUTION_ID")
+            [ -n "$WORKER_ID" ]    && cmd+=(--worker-id "$WORKER_ID")
+            ;;
+          executions-report-outcome)
+            cmd=(cueapi executions report-outcome)
+            [ -n "$EXECUTION_ID" ] && cmd+=("$EXECUTION_ID")
+            if [ "$SUCCESS" = "true" ]; then
+              cmd+=(--success)
+            elif [ "$SUCCESS" = "false" ]; then
+              cmd+=(--failure)
+            fi
+            [ -n "$EXTERNAL_ID" ] && cmd+=(--external-id "$EXTERNAL_ID")
+            [ -n "$RESULT_URL" ]  && cmd+=(--result-url "$RESULT_URL")
+            [ -n "$SUMMARY" ]     && cmd+=(--summary "$SUMMARY")
+            ;;
           *)
-            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage."
+            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome."
             exit 1
             ;;
         esac

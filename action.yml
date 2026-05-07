@@ -15,6 +15,9 @@ inputs:
         executions-list, executions-list-claimable, executions-get,
         executions-claim, executions-claim-next, executions-heartbeat,
         executions-report-outcome
+      Agent identity (Surface 6 messaging primitive, cueapi-cli 0.3.0+):
+        agents-create, agents-list, agents-get (alias: agents-describe),
+        agents-update, agents-delete, agents-webhook-secret-get
     required: true
 
   # Cue management inputs (existing).
@@ -101,6 +104,28 @@ inputs:
     description: 'Short human summary for executions-report-outcome (max 500 chars)'
     required: false
 
+  # Agent commands inputs (Surface 6 messaging primitive identity).
+  ref:
+    description: 'Agent slug or opaque id (for agents-get/update/delete/webhook-secret-get/describe)'
+    required: false
+  slug:
+    description: 'Agent slug (for agents-create; URL-safe identifier)'
+    required: false
+  display-name:
+    description: 'Agent display name (for agents-create/update)'
+    required: false
+  webhook-url:
+    description: 'Agent webhook callback URL (for agents-create/update). Pass empty string + clear-webhook-url=true to remove on update.'
+    required: false
+  clear-webhook-url:
+    description: 'Set to "true" on agents-update to remove the agent webhook URL (sentinel for unsetting). Default false.'
+    required: false
+    default: 'false'
+  online-only:
+    description: 'Set to "true" on agents-list to filter to currently-online agents only (mutually exclusive with status). Default false.'
+    required: false
+    default: 'false'
+
 outputs:
   result:
     description: 'Raw stdout from the cueapi CLI invocation'
@@ -168,6 +193,13 @@ runs:
         EXTERNAL_ID: ${{ inputs.external-id }}
         RESULT_URL: ${{ inputs.result-url }}
         SUMMARY: ${{ inputs.summary }}
+        # Agent commands inputs (Surface 6 messaging primitive identity).
+        REF: ${{ inputs.ref }}
+        SLUG: ${{ inputs.slug }}
+        DISPLAY_NAME: ${{ inputs.display-name }}
+        WEBHOOK_URL: ${{ inputs.webhook-url }}
+        CLEAR_WEBHOOK_URL: ${{ inputs.clear-webhook-url }}
+        ONLINE_ONLY: ${{ inputs.online-only }}
       run: |
         set -euo pipefail
         cmd=(cueapi "$COMMAND")
@@ -255,8 +287,54 @@ runs:
             [ -n "$RESULT_URL" ]  && cmd+=(--result-url "$RESULT_URL")
             [ -n "$SUMMARY" ]     && cmd+=(--summary "$SUMMARY")
             ;;
+          # Agents subgroup (Surface 6 messaging primitive identity, cueapi-cli
+          # PR #28 + #40). Each maps to ``cueapi agents <sub>``. Override the
+          # default ``cmd=(cueapi "$COMMAND")`` because COMMAND carries a
+          # hyphenated name and the CLI expects words separated.
+          agents-create)
+            cmd=(cueapi agents create)
+            [ -n "$SLUG" ]         && cmd+=(--slug "$SLUG")
+            [ -n "$DISPLAY_NAME" ] && cmd+=(--display-name "$DISPLAY_NAME")
+            [ -n "$DESCRIPTION" ]  && cmd+=(--description "$DESCRIPTION")
+            [ -n "$WEBHOOK_URL" ]  && cmd+=(--webhook-url "$WEBHOOK_URL")
+            ;;
+          agents-list)
+            cmd=(cueapi agents list)
+            if [ "$ONLINE_ONLY" = "true" ]; then
+              # --online-only is mutually exclusive with --status; only one passes.
+              cmd+=(--online-only)
+            elif [ -n "$STATUS" ]; then
+              cmd+=(--status "$STATUS")
+            fi
+            [ -n "$LIMIT" ]  && cmd+=(--limit "$LIMIT")
+            [ -n "$OFFSET" ] && cmd+=(--offset "$OFFSET")
+            ;;
+          agents-get|agents-describe)
+            # ``describe`` is a verb alias for ``get`` (cueapi-cli PR #40).
+            cmd=(cueapi agents get)
+            [ -n "$REF" ] && cmd+=("$REF")
+            ;;
+          agents-update)
+            cmd=(cueapi agents update)
+            [ -n "$REF" ]          && cmd+=("$REF")
+            [ -n "$DISPLAY_NAME" ] && cmd+=(--display-name "$DISPLAY_NAME")
+            [ -n "$DESCRIPTION" ]  && cmd+=(--description "$DESCRIPTION")
+            if [ "$CLEAR_WEBHOOK_URL" = "true" ]; then
+              cmd+=(--clear-webhook-url)
+            elif [ -n "$WEBHOOK_URL" ]; then
+              cmd+=(--webhook-url "$WEBHOOK_URL")
+            fi
+            ;;
+          agents-delete)
+            cmd=(cueapi agents delete)
+            [ -n "$REF" ] && cmd+=("$REF")
+            ;;
+          agents-webhook-secret-get)
+            cmd=(cueapi agents webhook-secret get)
+            [ -n "$REF" ] && cmd+=("$REF")
+            ;;
           *)
-            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome."
+            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get."
             exit 1
             ;;
         esac

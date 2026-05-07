@@ -1,0 +1,95 @@
+{
+  "manifest_version": 1,
+  "description": "Parity tracking for cueapi-action (the GitHub Action wrapping cueapi-cli) against the hosted CueAPI API and the cueapi-cli command surface. cueapi-action is a thin shell around `pip install cueapi && cueapi <command>`, so its parity is two-tier: (a) which cueapi-cli commands are exposed as Action inputs, (b) which CLI flag surface each exposed command covers. Drift becomes visible at audit time per the 3-layer parity discipline (PR template + this manifest + Backlog rows for each port).",
+  "private_source_repo": "https://github.com/cueapi/cueapi",
+  "private_source_paths": [
+    "app/routers/",
+    "cli/cueapi/cli.py (the CLI this action wraps)",
+    ".github/cueapi-action.yml (private mirror)"
+  ],
+  "wraps_package": "cueapi (PyPI)",
+  "wraps_package_repo": "https://github.com/cueapi/cueapi-cli",
+  "wraps_package_manifest": "https://github.com/cueapi/cueapi-cli/blob/main/parity-manifest.json",
+  "last_full_audit": "2026-05-06",
+  "action_version_at_audit": "v1 (action.yml head)",
+  "audit_methodology": "Walk every command in cueapi-cli's parity-manifest `commands_covered` and check whether action.yml exposes a matching `command:` input + the corresponding flag inputs. Drift goes in `commands_missing` (whole command not exposed) or `command_drift` (command exposed but flags incomplete).",
+  "audit_cadence": "Per-cueapi-cli-release. When cueapi-cli ships a new minor (0.x.0), audit which new commands/flags need Action exposure and open a Backlog row per port.",
+
+  "commands_exposed_via_action": {
+    "create":     "cueapi create — covers --name, --cron, --at, --url, --method, --timezone, --payload, --description, --worker. Missing: --schedule-type alternates beyond cron/at, --headers, --retry-* config",
+    "list":       "cueapi list — covers --status, --limit, --offset",
+    "get":        "cueapi get <id>",
+    "update":     "cueapi update <id> — covers --name, --cron, --url, --payload, --description. Missing: --status (use pause/resume), --headers, --transport",
+    "delete":     "cueapi delete <id>",
+    "pause":      "cueapi pause <id>",
+    "resume":     "cueapi resume <id>",
+    "whoami":     "cueapi whoami",
+    "usage":      "cueapi usage",
+    "fire":       "cueapi fire <id> — covers --payload-override, --merge-strategy. Missing: --send-at (PR #618), --exit-criteria (PR #632)",
+    "executions-list":          "cueapi executions list — covers --cue-id, --status, --limit, --offset. Missing: --outcome-state, --result-type, --has-evidence, --triggered-by (cueapi-cli PR #27)",
+    "executions-list-claimable":"cueapi executions list-claimable — covers --task, --agent",
+    "executions-get":           "cueapi executions get <id>",
+    "executions-claim":         "cueapi executions claim <id> --worker-id <id>",
+    "executions-claim-next":    "cueapi executions claim-next — covers --worker-id, --task",
+    "executions-heartbeat":     "cueapi executions heartbeat <id> --worker-id <id>",
+    "executions-report-outcome":"cueapi executions report-outcome <id> — covers --success/--failure, --external-id, --result-url, --summary"
+  },
+
+  "commands_missing_from_action": {
+    "login": "cueapi login — interactive device-code flow, intentionally not in Action surface. CI passes CUEAPI_API_KEY via secret instead.",
+    "logout": "cueapi logout — local-state only, no API call. Not relevant in Action context.",
+    "quickstart": "cueapi quickstart — interactive walkthrough, not relevant.",
+    "key regenerate": "POST /v1/auth/key/regenerate — destructive, intentionally gated behind manual flow. NOT-PORTED-INTENTIONAL.",
+    "key webhook-secret get": "GET /v1/auth/webhook-secret — could be exposed for `outputs:` in CI workflows that need to verify webhook signatures. NEEDS-PORT.",
+    "key webhook-secret regenerate": "POST /v1/auth/webhook-secret/regenerate — destructive. NOT-PORTED-INTENTIONAL.",
+    "workers list": "GET /v1/workers — useful for CI 'is the worker registered?' assertions. NEEDS-PORT.",
+    "workers delete": "DELETE /v1/workers/{id} — NEEDS-PORT (cleanup workflows).",
+    "agents create": "POST /v1/agents (Surface 6 messaging primitive identity) — NEEDS-PORT.",
+    "agents list": "GET /v1/agents — NEEDS-PORT.",
+    "agents get": "GET /v1/agents/{ref} — NEEDS-PORT.",
+    "agents update": "PATCH /v1/agents/{ref} — NEEDS-PORT.",
+    "agents delete": "DELETE /v1/agents/{ref} — NEEDS-PORT.",
+    "agents webhook-secret get": "GET /v1/agents/{ref}/webhook-secret — NEEDS-PORT.",
+    "agents roster": "GET /v1/agents/roster (PR #630) — NEEDS-PORT.",
+    "agents presence": "GET /v1/agents/{ref}/presence (PR #662) — NEEDS-PORT.",
+    "executions replay": "POST /v1/executions/{id}/replay (cueapi-cli PR #31) — NEEDS-PORT.",
+    "executions verification-pending": "POST /v1/executions/{id}/verification-pending (cueapi-cli PR #31) — NEEDS-PORT.",
+    "executions verify": "POST /v1/executions/{id}/verify (cueapi-cli PR #31) — NEEDS-PORT.",
+    "messages send": "POST /v1/messages (Surface 6 messaging primitive) — NEEDS-PORT.",
+    "messages list": "GET /v1/messages — NEEDS-PORT.",
+    "messages get": "GET /v1/messages/{id} — NEEDS-PORT.",
+    "messages ack": "POST /v1/messages/{id}/ack — NEEDS-PORT.",
+    "messages delete": "DELETE /v1/messages/{id} — NEEDS-PORT.",
+    "messages bulk-delete": "DELETE /v1/messages (bulk, PR #650) — NEEDS-PORT."
+  },
+
+  "command_drift": {
+    "create": [
+      "Missing flag --headers (custom HTTP headers for callback). cueapi-cli supports it; Action does not."
+    ],
+    "fire": [
+      "Missing flag --send-at (per-fire scheduling) — landed cueapi #618; cueapi-cli PR #28 ports it; Action drift open.",
+      "Missing flag --exit-criteria (per-fire termination conditions) — landed cueapi #632; Action drift open."
+    ],
+    "executions-list": [
+      "Missing flags --outcome-state / --result-type / --has-evidence / --triggered-by. cueapi-cli PR #27 added these; Action drift open."
+    ]
+  },
+
+  "post_2026_05_04_cueapi_prs_not_yet_in_action": [
+    "#618 — POST /v1/cues/{id}/fire send_at (per-fire scheduling)",
+    "#623 — POST /v1/messages send_at (per-message scheduling)",
+    "#630 — GET /v1/agents/roster (Agent Directory v0)",
+    "#632 — POST /v1/cues/{id}/fire exit_criteria",
+    "#650 — DELETE /v1/messages bulk delete",
+    "#662 — GET /v1/agents/{ref}/presence (cheap-poll variant)",
+    "#664 — POST /v1/executions/{id}/live-claim (Live-claim attestation, cmotigtnx)",
+    "#683 — POST /v1/cues/{id}/fire idempotency-key (Phase 2 substrate hardening)"
+  ],
+
+  "process_observations": [
+    "cueapi-action wraps cueapi-cli, so its drift surface is bounded by cueapi-cli's coverage. When cueapi-cli is behind on a feature, cueapi-action is necessarily behind too. Manifest refresh cadence should chain: cueapi-cli refreshes after each cueapi/cueapi merge → cueapi-action refreshes after each cueapi-cli release.",
+    "Several Action drift items resolve automatically as cueapi-cli ships. For drift that requires a NEW Action input (e.g. --send-at on fire), the Action needs explicit input declaration in action.yml + the env-var injection block.",
+    "First audit (this manifest) covers ~17 commands exposed and ~24 commands missing. Of the 24 missing, 21 are NEEDS-PORT and 3 are NOT-PORTED-INTENTIONAL (interactive or destructive). The Surface 6 messaging primitive (agents + messages) is the largest single un-ported feature group."
+  ]
+}

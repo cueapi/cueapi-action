@@ -20,6 +20,8 @@ inputs:
         agents-update, agents-delete, agents-webhook-secret-get
       Messaging primitive (Surface 6, cueapi-cli 0.3.0+):
         messages-send, messages-get, messages-read, messages-ack
+      Workers (worker registration / cleanup):
+        workers-list, workers-delete
     required: true
 
   # Cue management inputs (existing).
@@ -384,9 +386,6 @@ runs:
             [ -n "$REF" ] && cmd+=("$REF")
             ;;
           # Messaging primitive subgroup (Surface 6, cueapi-cli 0.3.0+).
-          # Each maps to ``cueapi messages <sub>``. Override the default
-          # ``cmd=(cueapi "$COMMAND")`` because COMMAND carries a
-          # hyphenated name and the CLI expects words separated.
           messages-send)
             cmd=(cueapi messages send)
             [ -n "$FROM_AGENT" ]       && cmd+=(--from "$FROM_AGENT")
@@ -412,8 +411,17 @@ runs:
             cmd=(cueapi messages ack)
             [ -n "$MSG_ID" ] && cmd+=("$MSG_ID")
             ;;
+          # Workers subgroup — registered worker query + cleanup.
+          workers-list)
+            cmd=(cueapi workers list)
+            ;;
+          workers-delete)
+            cmd=(cueapi workers delete)
+            [ -n "$WORKER_ID" ] && cmd+=("$WORKER_ID")
+            cmd+=(--yes)
+            ;;
           *)
-            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, messages-send, messages-get, messages-read, messages-ack."
+            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, messages-send, messages-get, messages-read, messages-ack, workers-list, workers-delete."
             exit 1
             ;;
         esac

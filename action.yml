@@ -18,6 +18,8 @@ inputs:
       Agent identity (Surface 6 messaging primitive, cueapi-cli 0.3.0+):
         agents-create, agents-list, agents-get (alias: agents-describe),
         agents-update, agents-delete, agents-webhook-secret-get
+      Messaging primitive (Surface 6, cueapi-cli 0.3.0+):
+        messages-send, messages-get, messages-read, messages-ack
     required: true
 
   # Cue management inputs (existing).
@@ -126,6 +128,42 @@ inputs:
     required: false
     default: 'false'
 
+  # Messaging primitive inputs (Surface 6, cueapi-cli 0.3.0+).
+  msg-id:
+    description: 'Target message ID (msg_<12 alnum>) for messages-get/read/ack'
+    required: false
+  from-agent:
+    description: 'Sender agent — opaque agent_id or slug-form (agent@user). Required for messages-send.'
+    required: false
+  to-agent:
+    description: 'Recipient agent — opaque agent_id or slug-form (agent@user). Required for messages-send.'
+    required: false
+  body:
+    description: 'Message body (1-32768 chars). Required for messages-send.'
+    required: false
+  subject:
+    description: 'Optional message subject (max 255 chars) for messages-send'
+    required: false
+  reply-to-message:
+    description: 'Previous message ID this reply chains to (msg_<12 alnum>). thread_id inherits.'
+    required: false
+  priority:
+    description: 'Message priority 1-5 (server default 3). Receiver-pair limits may downgrade >3 to 3.'
+    required: false
+  expects-reply:
+    description: 'Set "true" on messages-send to mark this message as expecting a reply.'
+    required: false
+    default: 'false'
+  reply-to-agent:
+    description: 'Decoupled reply target (defaults to the sender). Override when reply should route to a different agent.'
+    required: false
+  metadata:
+    description: 'JSON metadata blob for messages-send'
+    required: false
+  idempotency-key:
+    description: 'Optional Idempotency-Key header for messages-send (≤255 chars). Same key + same body within 24h returns existing message HTTP 200.'
+    required: false
+
 outputs:
   result:
     description: 'Raw stdout from the cueapi CLI invocation'
@@ -200,6 +238,18 @@ runs:
         WEBHOOK_URL: ${{ inputs.webhook-url }}
         CLEAR_WEBHOOK_URL: ${{ inputs.clear-webhook-url }}
         ONLINE_ONLY: ${{ inputs.online-only }}
+        # Messaging primitive inputs (Surface 6).
+        MSG_ID: ${{ inputs.msg-id }}
+        FROM_AGENT: ${{ inputs.from-agent }}
+        TO_AGENT: ${{ inputs.to-agent }}
+        BODY: ${{ inputs.body }}
+        SUBJECT: ${{ inputs.subject }}
+        REPLY_TO_MESSAGE: ${{ inputs.reply-to-message }}
+        PRIORITY: ${{ inputs.priority }}
+        EXPECTS_REPLY: ${{ inputs.expects-reply }}
+        REPLY_TO_AGENT: ${{ inputs.reply-to-agent }}
+        METADATA: ${{ inputs.metadata }}
+        IDEMPOTENCY_KEY: ${{ inputs.idempotency-key }}
       run: |
         set -euo pipefail
         cmd=(cueapi "$COMMAND")
@@ -333,8 +383,37 @@ runs:
             cmd=(cueapi agents webhook-secret get)
             [ -n "$REF" ] && cmd+=("$REF")
             ;;
+          # Messaging primitive subgroup (Surface 6, cueapi-cli 0.3.0+).
+          # Each maps to ``cueapi messages <sub>``. Override the default
+          # ``cmd=(cueapi "$COMMAND")`` because COMMAND carries a
+          # hyphenated name and the CLI expects words separated.
+          messages-send)
+            cmd=(cueapi messages send)
+            [ -n "$FROM_AGENT" ]       && cmd+=(--from "$FROM_AGENT")
+            [ -n "$TO_AGENT" ]         && cmd+=(--to "$TO_AGENT")
+            [ -n "$BODY" ]             && cmd+=(--body "$BODY")
+            [ -n "$SUBJECT" ]          && cmd+=(--subject "$SUBJECT")
+            [ -n "$REPLY_TO_MESSAGE" ] && cmd+=(--reply-to "$REPLY_TO_MESSAGE")
+            [ -n "$PRIORITY" ]         && cmd+=(--priority "$PRIORITY")
+            [ "$EXPECTS_REPLY" = "true" ] && cmd+=(--expects-reply)
+            [ -n "$REPLY_TO_AGENT" ]   && cmd+=(--reply-to-agent "$REPLY_TO_AGENT")
+            [ -n "$METADATA" ]         && cmd+=(--metadata "$METADATA")
+            [ -n "$IDEMPOTENCY_KEY" ]  && cmd+=(--idempotency-key "$IDEMPOTENCY_KEY")
+            ;;
+          messages-get)
+            cmd=(cueapi messages get)
+            [ -n "$MSG_ID" ] && cmd+=("$MSG_ID")
+            ;;
+          messages-read)
+            cmd=(cueapi messages read)
+            [ -n "$MSG_ID" ] && cmd+=("$MSG_ID")
+            ;;
+          messages-ack)
+            cmd=(cueapi messages ack)
+            [ -n "$MSG_ID" ] && cmd+=("$MSG_ID")
+            ;;
           *)
-            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get."
+            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, messages-send, messages-get, messages-read, messages-ack."
             exit 1
             ;;
         esac

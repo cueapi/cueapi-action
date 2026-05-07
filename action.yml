@@ -22,6 +22,9 @@ inputs:
         messages-send, messages-get, messages-read, messages-ack
       Workers (worker registration / cleanup):
         workers-list, workers-delete
+      Execution verify-class (replay terminal executions + manual verify
+      pipeline, cueapi-cli 0.3.0+):
+        executions-replay, executions-verification-pending, executions-verify
     required: true
 
   # Cue management inputs (existing).
@@ -96,7 +99,10 @@ inputs:
     description: 'Agent filter for executions-list-claimable (server-side SQL filter)'
     required: false
   success:
-    description: 'Outcome success flag for executions-report-outcome: "true" or "false"'
+    description: |
+      Outcome success flag — "true" or "false". Used for:
+        - executions-report-outcome (translates to --success / --failure)
+        - executions-verify (translates to --valid / --invalid; omit for server default valid=true)
     required: false
   external-id:
     description: 'External system ID for executions-report-outcome (e.g. PR number, doc ID)'
@@ -105,7 +111,10 @@ inputs:
     description: 'Public URL for executions-report-outcome evidence (e.g. tweet, PR, doc)'
     required: false
   summary:
-    description: 'Short human summary for executions-report-outcome (max 500 chars)'
+    description: |
+      Short human-readable note (max 500 chars). Used for:
+        - executions-report-outcome (--summary)
+        - executions-verify (--reason; most useful with success=false to record why verification failed)
     required: false
 
   # Agent commands inputs (Surface 6 messaging primitive identity).
@@ -420,8 +429,29 @@ runs:
             [ -n "$WORKER_ID" ] && cmd+=("$WORKER_ID")
             cmd+=(--yes)
             ;;
+          # Verify-class subgroup — replay terminal executions + manual
+          # verification pipeline. Reuses execution-id input + success
+          # (as --valid/--invalid) + summary (as --reason).
+          executions-replay)
+            cmd=(cueapi executions replay)
+            [ -n "$EXECUTION_ID" ] && cmd+=("$EXECUTION_ID")
+            ;;
+          executions-verification-pending)
+            cmd=(cueapi executions verification-pending)
+            [ -n "$EXECUTION_ID" ] && cmd+=("$EXECUTION_ID")
+            ;;
+          executions-verify)
+            cmd=(cueapi executions verify)
+            [ -n "$EXECUTION_ID" ] && cmd+=("$EXECUTION_ID")
+            if [ "$SUCCESS" = "true" ]; then
+              cmd+=(--valid)
+            elif [ "$SUCCESS" = "false" ]; then
+              cmd+=(--invalid)
+            fi
+            [ -n "$SUMMARY" ] && cmd+=(--reason "$SUMMARY")
+            ;;
           *)
-            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, messages-send, messages-get, messages-read, messages-ack, workers-list, workers-delete."
+            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, messages-send, messages-get, messages-read, messages-ack, workers-list, workers-delete, executions-replay, executions-verification-pending, executions-verify."
             exit 1
             ;;
         esac

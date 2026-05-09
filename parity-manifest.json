@@ -39,7 +39,8 @@
     "agents-describe":   "Verb alias for agents-get (PR #5, merged 2026-05-07)",
     "agents-update":     "cueapi agents update <ref> — covers --display-name, --description, --webhook-url, --clear-webhook-url sentinel (PR #5, merged 2026-05-07)",
     "agents-delete":     "cueapi agents delete <ref> — soft delete (PR #5, merged 2026-05-07)",
-    "agents-webhook-secret-get":"cueapi agents webhook-secret get <ref> (PR #5, merged 2026-05-07)"
+    "agents-webhook-secret-get":"cueapi agents webhook-secret get <ref> (PR #5, merged 2026-05-07)",
+    "agents-webhook-secret-regenerate":"cueapi agents webhook-secret regenerate <ref> --yes — destructive (rotates webhook signing secret + drops old one immediately). The CLI sends X-Confirm-Destructive: true; action passes --yes since CI has no interactive confirm. Ported from Backlog row cmousycjv (Drift-audit deferred 2026-05-07; ported 2026-05-09)."
   },
 
   "commands_missing_from_action": {
@@ -49,7 +50,6 @@
     "key regenerate": "POST /v1/auth/key/regenerate — destructive, intentionally gated behind manual flow. NOT-PORTED-INTENTIONAL.",
     "key webhook-secret get": "GET /v1/auth/webhook-secret — could be exposed for `outputs:` in CI workflows that need to verify webhook signatures. NEEDS-PORT.",
     "key webhook-secret regenerate": "POST /v1/auth/webhook-secret/regenerate — destructive. NOT-PORTED-INTENTIONAL.",
-    "agents webhook-secret regenerate": "POST /v1/agents/{ref}/webhook-secret/regenerate — destructive; needs --confirm-destructive pattern. Tracked on Backlog (Drift-audit deferred 2026-05-07).",
     "agents roster": "GET /v1/agents/roster (cueapi #630) — NEEDS-PORT in cueapi-cli + cueapi-action; cueapi-cli upstream port pending.",
     "agents presence": "GET /v1/agents/{ref}/presence (cueapi #662) — NEEDS-PORT in cueapi-cli + cueapi-action; cueapi-cli upstream port pending.",
     "agents inbox": "GET /v1/agents/{ref}/inbox — NEEDS-PORT (cueapi-cli has it via #28; Action wrap pending).",

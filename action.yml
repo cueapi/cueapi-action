@@ -17,7 +17,9 @@ inputs:
         executions-report-outcome
       Agent identity (Surface 6 messaging primitive, cueapi-cli 0.3.0+):
         agents-create, agents-list, agents-get (alias: agents-describe),
-        agents-update, agents-delete, agents-webhook-secret-get
+        agents-update, agents-delete, agents-webhook-secret-get,
+        agents-webhook-secret-regenerate (destructive — rotates the secret;
+        always passes --yes since CI has no interactive confirm)
       Messaging primitive (Surface 6, cueapi-cli 0.3.0+):
         messages-send, messages-get, messages-read, messages-ack
       Workers (worker registration / cleanup):
@@ -394,6 +396,17 @@ runs:
             cmd=(cueapi agents webhook-secret get)
             [ -n "$REF" ] && cmd+=("$REF")
             ;;
+          agents-webhook-secret-regenerate)
+            # Destructive: rotates the agent's webhook signing secret and
+            # drops the old one immediately. Any in-flight webhook
+            # deliveries already signed with the old secret will fail
+            # signature verification on the consumer side. The CLI sends
+            # the X-Confirm-Destructive: true header automatically;
+            # we always pass --yes since CI has no interactive confirm.
+            cmd=(cueapi agents webhook-secret regenerate)
+            [ -n "$REF" ] && cmd+=("$REF")
+            cmd+=(--yes)
+            ;;
           # Messaging primitive subgroup (Surface 6, cueapi-cli 0.3.0+).
           messages-send)
             cmd=(cueapi messages send)
@@ -451,7 +464,7 @@ runs:
             [ -n "$SUMMARY" ] && cmd+=(--reason "$SUMMARY")
             ;;
           *)
-            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, messages-send, messages-get, messages-read, messages-ack, workers-list, workers-delete, executions-replay, executions-verification-pending, executions-verify."
+            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, agents-webhook-secret-regenerate, messages-send, messages-get, messages-read, messages-ack, workers-list, workers-delete, executions-replay, executions-verification-pending, executions-verify."
             exit 1
             ;;
         esac

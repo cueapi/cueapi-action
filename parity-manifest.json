@@ -21,6 +21,7 @@
     "get":        "cueapi get <id>",
     "update":     "cueapi update <id> — covers --name, --cron, --url, --payload, --description. Missing: --status (use pause/resume), --headers, --transport",
     "delete":     "cueapi delete <id>",
+    "bulk-delete":"cueapi bulk-delete <id>... --yes — POST /v1/cues/bulk-delete (cueapi #650, cli #46). Per-ID atomic, max 100. Action takes whitespace-separated `cue-ids` input and always passes --yes (CI has no interactive confirm). CLI sends X-Confirm-Destructive: true. Ported from Backlog row cmousydyn (originally mistitled 'messages'; corrected 2026-05-09).",
     "pause":      "cueapi pause <id>",
     "resume":     "cueapi resume <id>",
     "whoami":     "cueapi whoami",
@@ -62,7 +63,6 @@
     "messages read": "POST /v1/messages/{id}/read — NEEDS-PORT. In-flight as PR #6.",
     "messages ack": "POST /v1/messages/{id}/ack — NEEDS-PORT. In-flight as PR #6.",
     "messages delete": "DELETE /v1/messages/{id} — bounded by cueapi-cli upstream (no per-id delete in cueapi-cli yet).",
-    "messages bulk-delete": "DELETE /v1/messages (bulk, cueapi #650) — bounded by cueapi-cli upstream port. Tracked on Backlog (Drift-audit deferred 2026-05-07).",
     "message-to": "Top-level message-to <recipient> ergonomic alias (cueapi-cli #40) — NEEDS-PORT, deferred to dedicated PR. Tracked on Backlog (Drift-audit deferred 2026-05-07)."
   },
 
@@ -84,7 +84,7 @@
     "#623 — POST /v1/messages send_at (per-message scheduling)",
     "#630 — GET /v1/agents/roster (Agent Directory v0)",
     "#632 — POST /v1/cues/{id}/fire exit_criteria",
-    "#650 — DELETE /v1/messages bulk delete",
+    "#650 — POST /v1/cues/bulk-delete (cueapi-action exposes via `bulk-delete` command; was originally mis-noted as 'messages bulk delete' on this list; corrected 2026-05-09)",
     "#662 — GET /v1/agents/{ref}/presence (cheap-poll variant)",
     "#664 — POST /v1/executions/{id}/live-claim (Live-claim attestation, cmotigtnx)",
     "#683 — POST /v1/cues/{id}/fire idempotency-key (Phase 2 substrate hardening)"

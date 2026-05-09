@@ -9,8 +9,9 @@ inputs:
   command:
     description: |
       CueAPI CLI command to run. Cue management:
-        create, list, get, update, delete, pause, resume, whoami, usage,
-        fire
+        create, list, get, update, delete, bulk-delete (max 100 IDs;
+        always passes --yes since CI has no interactive confirm),
+        pause, resume, whoami, usage, fire
       Worker-execution lifecycle (introduced in cueapi 0.2.0):
         executions-list, executions-list-claimable, executions-get,
         executions-claim, executions-claim-next, executions-heartbeat,
@@ -62,6 +63,15 @@ inputs:
     default: 'false'
   cue-id:
     description: 'Target cue ID (for get/update/delete/pause/resume/fire/executions-list)'
+    required: false
+  cue-ids:
+    description: |
+      Multiple cue IDs for `bulk-delete` (whitespace or newline separated;
+      max 100 per call). Per-ID atomic, NOT batch atomic — IDs that don't
+      exist OR aren't owned by the caller land in the response's `skipped`
+      array (silent skip on miss; no info leak about other tenants' cues).
+      Action always passes --yes (no interactive confirm in CI); CLI sends
+      the X-Confirm-Destructive: true header server-side.
     required: false
   status:
     description: 'Filter by status (active/paused for list; execution status for executions-list)'
@@ -230,6 +240,7 @@ runs:
         DESCRIPTION: ${{ inputs.description }}
         WORKER: ${{ inputs.worker }}
         CUE_ID: ${{ inputs.cue-id }}
+        CUE_IDS: ${{ inputs.cue-ids }}
         STATUS: ${{ inputs.status }}
         LIMIT: ${{ inputs.limit }}
         OFFSET: ${{ inputs.offset }}
@@ -289,6 +300,23 @@ runs:
             ;;
           get|delete|pause|resume)
             [ -n "$CUE_ID" ]      && cmd+=("$CUE_ID")
+            ;;
+          bulk-delete)
+            # Whitespace/newline-separated list of cue IDs. Splits via
+            # `read -ra`. Caps at 100 to match server + cli #46. Always
+            # passes --yes (no interactive confirm in CI); CLI sends
+            # X-Confirm-Destructive: true server-side.
+            if [ -z "$CUE_IDS" ]; then
+              echo "::error::bulk-delete requires cue-ids input (whitespace-separated cue IDs)."
+              exit 1
+            fi
+            read -ra _IDS <<< "$CUE_IDS"
+            if [ ${#_IDS[@]} -gt 100 ]; then
+              echo "::error::bulk-delete max 100 IDs per call; got ${#_IDS[@]}. Split into batches."
+              exit 1
+            fi
+            cmd+=("${_IDS[@]}")
+            cmd+=(--yes)
             ;;
           list)
             [ -n "$STATUS" ]      && cmd+=(--status "$STATUS")
@@ -464,7 +492,7 @@ runs:
             [ -n "$SUMMARY" ] && cmd+=(--reason "$SUMMARY")
             ;;
           *)
-            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, agents-webhook-secret-regenerate, messages-send, messages-get, messages-read, messages-ack, workers-list, workers-delete, executions-replay, executions-verification-pending, executions-verify."
+            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, bulk-delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, agents-webhook-secret-regenerate, messages-send, messages-get, messages-read, messages-ack, workers-list, workers-delete, executions-replay, executions-verification-pending, executions-verify."
             exit 1
             ;;
         esac

@@ -67,6 +67,9 @@ Worker-execution lifecycle (cueapi 0.2.0+):
 | `executions-claim-next`       | Claim the next available execution (optional `task` filter)            |
 | `executions-heartbeat`        | Extend the claim lease on an in-flight execution                       |
 | `executions-report-outcome`   | Report a write-once outcome (`success: true|false` + optional evidence) |
+| `messages-send`               | Send a message via fully-qualified `to-agent` (Surface 6)              |
+| `message-to`                  | Top-level ergonomic alias — accepts a recipient by bare name, slug, or agent_id; CLI does roster lookup before sending (cueapi-cli #40) |
+| `messages-get` / `messages-read` / `messages-ack` | Single-message reveal / read / ack lifecycle             |
 
 ## Inputs
 
@@ -90,8 +93,9 @@ Worker-execution lifecycle (cueapi 0.2.0+):
 | `cli-version` | no       | Pin a specific `cueapi` CLI version (default: latest)              |
 | `payload-override` | no  | JSON payload override for `fire`                                   |
 | `merge-strategy` | no    | `merge` (default) or `replace` for `fire`                          |
-| `send-at`     | no       | ISO 8601 timestamp to schedule a future `fire` (PR #618) or `messages-send` (PR #623) |
+| `send-at`     | no       | ISO 8601 timestamp to schedule a future `fire` (PR #618) or `messages-send` / `message-to` (PR #623) |
 | `exit-criteria` | no     | Whitespace-separated assertion keys for `fire` work-verification (PR #632) |
+| `mode`        | no       | Delivery mode for `message-to`: `live` / `bg` / `inbox` / `webhook` / `auto` (default; omitted on the wire) |
 | `execution-id` | no      | Target execution ID (executions-get/claim/heartbeat/report-outcome) |
 | `worker-id`   | no       | Stable worker identifier (executions-claim/claim-next/heartbeat)   |
 | `task`        | no       | Task filter for executions-list-claimable / executions-claim-next  |

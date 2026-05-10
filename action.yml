@@ -22,7 +22,11 @@ inputs:
         agents-webhook-secret-regenerate (destructive — rotates the secret;
         always passes --yes since CI has no interactive confirm)
       Messaging primitive (Surface 6, cueapi-cli 0.3.0+):
-        messages-send, messages-get, messages-read, messages-ack
+        messages-send, messages-get, messages-read, messages-ack,
+        message-to (top-level ergonomic alias — accepts a recipient
+        by name/slug/agent_id; CLI does roster lookup before sending.
+        Distinct from messages-send which requires a fully-qualified
+        to-agent. Wraps cueapi-cli #40.)
       Workers (worker registration / cleanup):
         workers-list, workers-delete
       Execution verify-class (replay terminal executions + manual verify
@@ -174,7 +178,10 @@ inputs:
     description: 'Sender agent — opaque agent_id or slug-form (agent@user). Required for messages-send.'
     required: false
   to-agent:
-    description: 'Recipient agent — opaque agent_id or slug-form (agent@user). Required for messages-send.'
+    description: |
+      Recipient agent. For `messages-send`: opaque agent_id (agt_xxx) or slug-form (agent@user) — must be fully qualified.
+      For `message-to`: also accepts a bare display name or slug; CLI does roster lookup before sending (case-insensitive
+      match against display_name and slug). Required for messages-send and message-to.
     required: false
   body:
     description: 'Message body (1-32768 chars). Required for messages-send.'
@@ -199,7 +206,27 @@ inputs:
     description: 'JSON metadata blob for messages-send'
     required: false
   idempotency-key:
-    description: 'Optional Idempotency-Key header for messages-send (≤255 chars). Same key + same body within 24h returns existing message HTTP 200.'
+    description: |
+      Optional Idempotency-Key (≤256 chars). Different transports per command:
+        - For `messages-send` / `message-to`: sent as the `Idempotency-Key` request header.
+        - For `fire`: sent as the `idempotency_key` body field on cues fire (server FireRequest schema, hosted PR #683).
+          Same key on the same cue within 24h returns the cached execution; same key + DIFFERENT body
+          returns 409 idempotency_key_conflict. Sent as a BODY field, NOT a header — matches the server's
+          FireRequest contract.
+      Same key + same body within 24h returns the existing record HTTP 200 instead of 201.
+    required: false
+  mode:
+    description: |
+      Delivery mode hint for `message-to` (Surface 6 v2 delivery_mode; cueapi-cli #41).
+      One of: live | bg | inbox | webhook | auto (default).
+        live = recipient's attached Live session
+        bg = spawn a fresh background session for the recipient
+        inbox = leave in inbox for pull
+        webhook = POST to the recipient's configured webhook
+        auto = server picks the best supported mode
+      Server may downgrade if the requested mode isn't supported. Not used by `messages-send`
+      (cli upstream port pending). Defaulting to `auto` matches the CLI's default; the action
+      omits the flag entirely when set to `auto` to keep wire-format identical to pre-Surface-6 senders.
     required: false
 
 outputs:
@@ -292,6 +319,7 @@ runs:
         REPLY_TO_AGENT: ${{ inputs.reply-to-agent }}
         METADATA: ${{ inputs.metadata }}
         IDEMPOTENCY_KEY: ${{ inputs.idempotency-key }}
+        MODE: ${{ inputs.mode }}
       run: |
         set -euo pipefail
         cmd=(cueapi "$COMMAND")
@@ -348,6 +376,7 @@ runs:
             [ -n "$PAYLOAD_OVERRIDE" ] && cmd+=(--payload-override "$PAYLOAD_OVERRIDE")
             [ -n "$MERGE_STRATEGY" ]   && cmd+=(--merge-strategy "$MERGE_STRATEGY")
             [ -n "$SEND_AT" ]          && cmd+=(--send-at "$SEND_AT")
+            [ -n "$IDEMPOTENCY_KEY" ]  && cmd+=(--idempotency-key "$IDEMPOTENCY_KEY")
             # Whitespace-separated list of assertion keys → repeated --exit-criteria
             # flags (the CLI uses click's `multiple=True`, so each key needs its own
             # flag invocation). Empty string === field not passed, in which case
@@ -482,6 +511,30 @@ runs:
             [ -n "$IDEMPOTENCY_KEY" ]  && cmd+=(--idempotency-key "$IDEMPOTENCY_KEY")
             [ -n "$SEND_AT" ]          && cmd+=(--send-at "$SEND_AT")
             ;;
+          message-to)
+            # Top-level ergonomic alias for messaging primitive sends. Accepts
+            # a recipient by bare name, slug, or fully-qualified agent_id;
+            # CLI does case-insensitive roster lookup before sending. Wraps
+            # cueapi-cli #40. Distinct from `messages-send` (which requires
+            # a fully-qualified to-agent).
+            cmd=(cueapi message-to)
+            [ -n "$TO_AGENT" ]         && cmd+=("$TO_AGENT")  # positional recipient
+            [ -n "$FROM_AGENT" ]       && cmd+=(--from "$FROM_AGENT")
+            [ -n "$BODY" ]             && cmd+=(--body "$BODY")
+            [ -n "$SUBJECT" ]          && cmd+=(--subject "$SUBJECT")
+            [ -n "$REPLY_TO_MESSAGE" ] && cmd+=(--reply-to "$REPLY_TO_MESSAGE")
+            [ -n "$PRIORITY" ]         && cmd+=(--priority "$PRIORITY")
+            [ "$EXPECTS_REPLY" = "true" ] && cmd+=(--expects-reply)
+            [ -n "$REPLY_TO_AGENT" ]   && cmd+=(--reply-to-agent "$REPLY_TO_AGENT")
+            [ -n "$METADATA" ]         && cmd+=(--metadata "$METADATA")
+            [ -n "$IDEMPOTENCY_KEY" ]  && cmd+=(--idempotency-key "$IDEMPOTENCY_KEY")
+            [ -n "$SEND_AT" ]          && cmd+=(--send-at "$SEND_AT")
+            # Default-omit `--mode auto` to keep wire format identical to
+            # pre-Surface-6 senders (server treats absent === auto).
+            if [ -n "$MODE" ] && [ "$MODE" != "auto" ]; then
+              cmd+=(--mode "$MODE")
+            fi
+            ;;
           messages-get)
             cmd=(cueapi messages get)
             [ -n "$MSG_ID" ] && cmd+=("$MSG_ID")
@@ -525,7 +578,7 @@ runs:
             [ -n "$SUMMARY" ] && cmd+=(--reason "$SUMMARY")
             ;;
           *)
-            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, bulk-delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, agents-webhook-secret-regenerate, messages-send, messages-get, messages-read, messages-ack, workers-list, workers-delete, executions-replay, executions-verification-pending, executions-verify."
+            echo "::error::Unsupported command '$COMMAND'. Supported: create, list, get, update, delete, bulk-delete, pause, resume, whoami, usage, fire, executions-list, executions-list-claimable, executions-get, executions-claim, executions-claim-next, executions-heartbeat, executions-report-outcome, agents-create, agents-list, agents-get, agents-describe, agents-update, agents-delete, agents-webhook-secret-get, agents-webhook-secret-regenerate, messages-send, messages-get, messages-read, messages-ack, message-to, workers-list, workers-delete, executions-replay, executions-verification-pending, executions-verify."
             exit 1
             ;;
         esac

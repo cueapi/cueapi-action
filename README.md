@@ -101,6 +101,10 @@ Worker-execution lifecycle (cueapi 0.2.0+):
 | `worker-id`   | no       | Stable worker identifier (executions-claim/claim-next/heartbeat)   |
 | `task`        | no       | Task filter for executions-list-claimable / executions-claim-next  |
 | `agent`       | no       | Agent filter for executions-list-claimable                          |
+| `outcome-state` | no     | Filter `executions-list` by outcome_state (reported_success / reported_failure / verified_success / verification_pending / verification_failed / unknown) |
+| `result-type` | no       | Filter `executions-list` by evidence result_type (e.g. `pr`, `issue`, `comment`, `doc`) |
+| `has-evidence` | no      | Set `"true"` to filter `executions-list` to executions that reported evidence |
+| `triggered-by` | no      | Filter `executions-list` by triggered_by (`scheduled` / `manual_fire` / `chain`) |
 | `success`     | no       | `true`/`false` for executions-report-outcome                       |
 | `external-id` | no       | External system ID for executions-report-outcome                    |
 | `result-url`  | no       | Public URL evidence for executions-report-outcome                   |

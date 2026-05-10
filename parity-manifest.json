@@ -27,7 +27,7 @@
     "whoami":     "cueapi whoami",
     "usage":      "cueapi usage",
     "fire":       "cueapi fire <id> — covers --payload-override, --merge-strategy, --send-at (PR #618), --exit-criteria (PR #632 — whitespace-separated keys input), --idempotency-key (PR #683, this PR — body field on FireRequest, NOT a header).",
-    "executions-list":          "cueapi executions list — covers --cue-id, --status, --limit, --offset. Missing: --outcome-state, --result-type, --has-evidence, --triggered-by (cueapi-cli PR #27)",
+    "executions-list":          "cueapi executions list — covers --cue-id, --status, --limit, --offset, --outcome-state, --result-type, --has-evidence (boolean flag), --triggered-by. cueapi-cli PR #27 added the 4 filter flags upstream; this PR wires them all through.",
     "executions-list-claimable":"cueapi executions list-claimable — covers --task, --agent",
     "executions-get":           "cueapi executions get <id>",
     "executions-claim":         "cueapi executions claim <id> --worker-id <id>",
@@ -72,9 +72,7 @@
     ],
     "messages-send": [],
     "fire": [],
-    "executions-list": [
-      "Missing flags --outcome-state / --result-type / --has-evidence / --triggered-by. cueapi-cli PR #27 added these; Action drift open."
-    ]
+    "executions-list": []
   },
 
   "post_2026_05_04_cueapi_prs_not_yet_in_action": [

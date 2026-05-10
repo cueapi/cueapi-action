@@ -90,6 +90,8 @@ Worker-execution lifecycle (cueapi 0.2.0+):
 | `cli-version` | no       | Pin a specific `cueapi` CLI version (default: latest)              |
 | `payload-override` | no  | JSON payload override for `fire`                                   |
 | `merge-strategy` | no    | `merge` (default) or `replace` for `fire`                          |
+| `send-at`     | no       | ISO 8601 timestamp to schedule a future `fire` (PR #618) or `messages-send` (PR #623) |
+| `exit-criteria` | no     | Whitespace-separated assertion keys for `fire` work-verification (PR #632) |
 | `execution-id` | no      | Target execution ID (executions-get/claim/heartbeat/report-outcome) |
 | `worker-id`   | no       | Stable worker identifier (executions-claim/claim-next/heartbeat)   |
 | `task`        | no       | Task filter for executions-list-claimable / executions-claim-next  |

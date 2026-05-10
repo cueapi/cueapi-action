@@ -26,7 +26,7 @@
     "resume":     "cueapi resume <id>",
     "whoami":     "cueapi whoami",
     "usage":      "cueapi usage",
-    "fire":       "cueapi fire <id> — covers --payload-override, --merge-strategy, --send-at (PR #618, this PR), --exit-criteria (PR #632, this PR — whitespace-separated keys input). Missing: --idempotency-key (PR #683 — drift open).",
+    "fire":       "cueapi fire <id> — covers --payload-override, --merge-strategy, --send-at (PR #618), --exit-criteria (PR #632 — whitespace-separated keys input), --idempotency-key (PR #683, this PR — body field on FireRequest, NOT a header).",
     "executions-list":          "cueapi executions list — covers --cue-id, --status, --limit, --offset. Missing: --outcome-state, --result-type, --has-evidence, --triggered-by (cueapi-cli PR #27)",
     "executions-list-claimable":"cueapi executions list-claimable — covers --task, --agent",
     "executions-get":           "cueapi executions get <id>",
@@ -45,7 +45,8 @@
     "messages-send":"cueapi messages send — covers --from, --to, --body, --subject, --reply-to, --priority, --expects-reply, --reply-to-agent, --metadata, --idempotency-key, --send-at (PR #623, this PR). Missing: --mode (Surface 6 v2 delivery_mode — cueapi-cli only has it on `message-to`, not `messages send`; cli upstream port pending), --notify (PR #619 BCC-light — cueapi-cli upstream port pending). Ported via PR #6 (2026-05-07).",
     "messages-get":"cueapi messages get <msg_id> — single-message reveal (PR #6, merged 2026-05-07).",
     "messages-read":"cueapi messages read <msg_id> — mark message read (PR #6, merged 2026-05-07).",
-    "messages-ack":"cueapi messages ack <msg_id> — acknowledge message (PR #6, merged 2026-05-07)."
+    "messages-ack":"cueapi messages ack <msg_id> — acknowledge message (PR #6, merged 2026-05-07).",
+    "message-to":"cueapi message-to <recipient> — top-level ergonomic alias for messaging primitive sends (cueapi-cli #40). Action reuses `to-agent` as the positional recipient (also accepts bare name / slug; CLI does roster lookup case-insensitive). Covers --from, --body, --subject, --reply-to, --priority, --expects-reply, --reply-to-agent, --metadata, --idempotency-key, --send-at (PR #623), --mode (Surface 6 v2; default-omit `auto`). Ported from Backlog rows cmousyb4a + cmousyqhy (Drift-audit deferred 2026-05-07; ported via this PR)."
   },
 
   "commands_missing_from_action": {
@@ -62,8 +63,7 @@
     "executions replay": "POST /v1/executions/{id}/replay (cueapi-cli PR #31) — NEEDS-PORT. In-flight as PR #8.",
     "executions verification-pending": "POST /v1/executions/{id}/verification-pending (cueapi-cli PR #31) — NEEDS-PORT. In-flight as PR #8.",
     "executions verify": "POST /v1/executions/{id}/verify (cueapi-cli PR #31) — NEEDS-PORT. In-flight as PR #8.",
-    "messages delete": "DELETE /v1/messages/{id} — bounded by cueapi-cli upstream (no per-id delete in cueapi-cli yet).",
-    "message-to": "Top-level message-to <recipient> ergonomic alias (cueapi-cli #40) — NEEDS-PORT, deferred to dedicated PR. Tracked on Backlog (Drift-audit deferred 2026-05-07)."
+    "messages delete": "DELETE /v1/messages/{id} — bounded by cueapi-cli upstream (no per-id delete in cueapi-cli yet)."
   },
 
   "command_drift": {
@@ -74,9 +74,7 @@
       "Missing flag --mode (Surface 6 v2 delivery_mode). cueapi-cli only has it on `message-to`, not `messages send`; cli upstream port pending then Action follow-up.",
       "Missing flag --notify (PR #619 §17 BCC-light). cueapi-cli upstream port pending then Action follow-up."
     ],
-    "fire": [
-      "Missing flag --idempotency-key (PR #683 idempotency on cue fires). cueapi-cli ships it; Action drift open."
-    ],
+    "fire": [],
     "executions-list": [
       "Missing flags --outcome-state / --result-type / --has-evidence / --triggered-by. cueapi-cli PR #27 added these; Action drift open."
     ]
@@ -86,8 +84,7 @@
     "#630 — GET /v1/agents/roster (Agent Directory v0)",
     "#650 — POST /v1/cues/bulk-delete (cueapi-action exposes via `bulk-delete` command; was originally mis-noted as 'messages bulk delete' on this list; corrected 2026-05-09)",
     "#662 — GET /v1/agents/{ref}/presence (cheap-poll variant)",
-    "#664 — POST /v1/executions/{id}/live-claim (Live-claim attestation, cmotigtnx)",
-    "#683 — POST /v1/cues/{id}/fire idempotency-key (Phase 2 substrate hardening)"
+    "#664 — POST /v1/executions/{id}/live-claim (Live-claim attestation, cmotigtnx)"
   ],
 
   "process_observations": [

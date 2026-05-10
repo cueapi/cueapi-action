@@ -217,16 +217,26 @@ inputs:
     required: false
   mode:
     description: |
-      Delivery mode hint for `message-to` (Surface 6 v2 delivery_mode; cueapi-cli #41).
+      Delivery mode hint for `messages-send` and `message-to` (Surface 6 v2 delivery_mode;
+      cueapi-cli #41 added it to `message-to`; cueapi-cli #49 added it to `messages send` for parity).
       One of: live | bg | inbox | webhook | auto (default).
         live = recipient's attached Live session
         bg = spawn a fresh background session for the recipient
         inbox = leave in inbox for pull
         webhook = POST to the recipient's configured webhook
         auto = server picks the best supported mode
-      Server may downgrade if the requested mode isn't supported. Not used by `messages-send`
-      (cli upstream port pending). Defaulting to `auto` matches the CLI's default; the action
-      omits the flag entirely when set to `auto` to keep wire-format identical to pre-Surface-6 senders.
+      Server may downgrade if the requested mode isn't supported. Defaulting to `auto`
+      matches the CLI's default; the action omits the flag entirely when set to `auto`
+      to keep wire-format identical to pre-Surface-6 senders.
+    required: false
+  notify:
+    description: |
+      §17 BCC-light (hosted PR #619) — whitespace-separated list of agent refs (max 10).
+      Used by `messages-send` and `message-to`. Each ref gets a stripped notification copy
+      (subject + sender + recipient + 1-line summary, no full body) alongside the main
+      delivery, sharing the main message's thread_id. Each entry must be a fully-qualified
+      agent ref (opaque agt_xxx or slug-form agent@user). Self-bcc is silently de-duped
+      server-side. Notifications skip the monthly quota and are pinned to priority=3.
     required: false
 
 outputs:
@@ -320,6 +330,7 @@ runs:
         METADATA: ${{ inputs.metadata }}
         IDEMPOTENCY_KEY: ${{ inputs.idempotency-key }}
         MODE: ${{ inputs.mode }}
+        NOTIFY: ${{ inputs.notify }}
       run: |
         set -euo pipefail
         cmd=(cueapi "$COMMAND")
@@ -510,6 +521,19 @@ runs:
             [ -n "$METADATA" ]         && cmd+=(--metadata "$METADATA")
             [ -n "$IDEMPOTENCY_KEY" ]  && cmd+=(--idempotency-key "$IDEMPOTENCY_KEY")
             [ -n "$SEND_AT" ]          && cmd+=(--send-at "$SEND_AT")
+            # Default-omit `--mode auto` to keep wire format identical to
+            # pre-Surface-6 senders (server treats absent === auto).
+            if [ -n "$MODE" ] && [ "$MODE" != "auto" ]; then
+              cmd+=(--mode "$MODE")
+            fi
+            # §17 BCC-light: whitespace-separated agent refs → repeated
+            # --notify flags (CLI uses click `multiple=True`, max 10).
+            if [ -n "$NOTIFY" ]; then
+              # shellcheck disable=SC2086 # intentional word-splitting on whitespace
+              for ref in $NOTIFY; do
+                cmd+=(--notify "$ref")
+              done
+            fi
             ;;
           message-to)
             # Top-level ergonomic alias for messaging primitive sends. Accepts
@@ -533,6 +557,14 @@ runs:
             # pre-Surface-6 senders (server treats absent === auto).
             if [ -n "$MODE" ] && [ "$MODE" != "auto" ]; then
               cmd+=(--mode "$MODE")
+            fi
+            # §17 BCC-light: whitespace-separated agent refs → repeated
+            # --notify flags (CLI uses click `multiple=True`, max 10).
+            if [ -n "$NOTIFY" ]; then
+              # shellcheck disable=SC2086 # intentional word-splitting on whitespace
+              for ref in $NOTIFY; do
+                cmd+=(--notify "$ref")
+              done
             fi
             ;;
           messages-get)

@@ -129,6 +129,35 @@ inputs:
   agent:
     description: 'Agent filter for executions-list-claimable (server-side SQL filter)'
     required: false
+
+  # executions-list filter inputs (cueapi-cli PR #27).
+  outcome-state:
+    description: |
+      Filter `executions-list` by outcome_state (server-side filter).
+      One of: reported_success / reported_failure / verified_success /
+      verification_pending / verification_failed / unknown.
+    required: false
+  result-type:
+    description: |
+      Filter `executions-list` by evidence result_type (server-side filter).
+      Free-form string matched against the execution's `evidence_result_type`
+      column (e.g. "pr", "issue", "comment", "doc").
+    required: false
+  has-evidence:
+    description: |
+      Filter `executions-list` to executions that reported evidence (i.e.
+      `evidence_external_id IS NOT NULL`). Set to "true" to enable;
+      omit/false to apply no filter. The flag is meaningful only when true
+      (server-side `has_evidence=false` is the same as omitting it, just
+      with URL noise).
+    required: false
+    default: 'false'
+  triggered-by:
+    description: |
+      Filter `executions-list` by triggered_by (server-side filter).
+      One of: scheduled / manual_fire / chain.
+    required: false
+
   success:
     description: |
       Outcome success flag — "true" or "false". Used for:
@@ -306,6 +335,11 @@ runs:
         WORKER_ID: ${{ inputs.worker-id }}
         TASK: ${{ inputs.task }}
         AGENT: ${{ inputs.agent }}
+        # executions-list filter inputs (cueapi-cli PR #27).
+        OUTCOME_STATE: ${{ inputs.outcome-state }}
+        RESULT_TYPE: ${{ inputs.result-type }}
+        HAS_EVIDENCE: ${{ inputs.has-evidence }}
+        TRIGGERED_BY: ${{ inputs.triggered-by }}
         SUCCESS: ${{ inputs.success }}
         EXTERNAL_ID: ${{ inputs.external-id }}
         RESULT_URL: ${{ inputs.result-url }}
@@ -409,10 +443,18 @@ runs:
           # CLI expects the words separated.
           executions-list)
             cmd=(cueapi executions list)
-            [ -n "$CUE_ID" ]      && cmd+=(--cue-id "$CUE_ID")
-            [ -n "$STATUS" ]      && cmd+=(--status "$STATUS")
-            [ -n "$LIMIT" ]       && cmd+=(--limit "$LIMIT")
-            [ -n "$OFFSET" ]      && cmd+=(--offset "$OFFSET")
+            [ -n "$CUE_ID" ]        && cmd+=(--cue-id "$CUE_ID")
+            [ -n "$STATUS" ]        && cmd+=(--status "$STATUS")
+            [ -n "$OUTCOME_STATE" ] && cmd+=(--outcome-state "$OUTCOME_STATE")
+            [ -n "$RESULT_TYPE" ]   && cmd+=(--result-type "$RESULT_TYPE")
+            # has-evidence is a boolean flag on the CLI — only emit when true.
+            # Server-side has_evidence=false is equivalent to omitting the
+            # filter entirely, so we drop it on the false case to keep the
+            # CLI invocation clean.
+            [ "$HAS_EVIDENCE" = "true" ] && cmd+=(--has-evidence)
+            [ -n "$TRIGGERED_BY" ]  && cmd+=(--triggered-by "$TRIGGERED_BY")
+            [ -n "$LIMIT" ]         && cmd+=(--limit "$LIMIT")
+            [ -n "$OFFSET" ]        && cmd+=(--offset "$OFFSET")
             ;;
           executions-list-claimable)
             cmd=(cueapi executions list-claimable)

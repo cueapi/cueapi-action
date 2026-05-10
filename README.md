@@ -95,7 +95,8 @@ Worker-execution lifecycle (cueapi 0.2.0+):
 | `merge-strategy` | no    | `merge` (default) or `replace` for `fire`                          |
 | `send-at`     | no       | ISO 8601 timestamp to schedule a future `fire` (PR #618) or `messages-send` / `message-to` (PR #623) |
 | `exit-criteria` | no     | Whitespace-separated assertion keys for `fire` work-verification (PR #632) |
-| `mode`        | no       | Delivery mode for `message-to`: `live` / `bg` / `inbox` / `webhook` / `auto` (default; omitted on the wire) |
+| `mode`        | no       | Delivery mode for `messages-send` / `message-to`: `live` / `bg` / `inbox` / `webhook` / `auto` (default; omitted on the wire) |
+| `notify`      | no       | Whitespace-separated agent refs (max 10) for `messages-send` / `message-to` BCC-light (PR #619) |
 | `execution-id` | no      | Target execution ID (executions-get/claim/heartbeat/report-outcome) |
 | `worker-id`   | no       | Stable worker identifier (executions-claim/claim-next/heartbeat)   |
 | `task`        | no       | Task filter for executions-list-claimable / executions-claim-next  |

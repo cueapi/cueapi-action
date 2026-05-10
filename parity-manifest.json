@@ -42,7 +42,7 @@
     "agents-delete":     "cueapi agents delete <ref> — soft delete (PR #5, merged 2026-05-07)",
     "agents-webhook-secret-get":"cueapi agents webhook-secret get <ref> (PR #5, merged 2026-05-07)",
     "agents-webhook-secret-regenerate":"cueapi agents webhook-secret regenerate <ref> --yes — destructive (rotates webhook signing secret + drops old one immediately). The CLI sends X-Confirm-Destructive: true; action passes --yes since CI has no interactive confirm. Ported from Backlog row cmousycjv (Drift-audit deferred 2026-05-07; ported 2026-05-09).",
-    "messages-send":"cueapi messages send — covers --from, --to, --body, --subject, --reply-to, --priority, --expects-reply, --reply-to-agent, --metadata, --idempotency-key, --send-at (PR #623, this PR). Missing: --mode (Surface 6 v2 delivery_mode — cueapi-cli only has it on `message-to`, not `messages send`; cli upstream port pending), --notify (PR #619 BCC-light — cueapi-cli upstream port pending). Ported via PR #6 (2026-05-07).",
+    "messages-send":"cueapi messages send — covers --from, --to, --body, --subject, --reply-to, --priority, --expects-reply, --reply-to-agent, --metadata, --idempotency-key, --send-at (PR #623), --mode (Surface 6 v2 delivery_mode; cueapi-cli #49 added it for parity with message-to, this PR wires through), --notify (PR #619 BCC-light; cueapi-cli #49 added it, this PR wires through whitespace-separated → repeated --notify flags). Ported via PR #6 (2026-05-07) + this PR for the --mode/--notify wire-through.",
     "messages-get":"cueapi messages get <msg_id> — single-message reveal (PR #6, merged 2026-05-07).",
     "messages-read":"cueapi messages read <msg_id> — mark message read (PR #6, merged 2026-05-07).",
     "messages-ack":"cueapi messages ack <msg_id> — acknowledge message (PR #6, merged 2026-05-07).",
@@ -70,10 +70,7 @@
     "create": [
       "Missing flag --headers (custom HTTP headers for callback). cueapi-cli supports it; Action does not."
     ],
-    "messages-send": [
-      "Missing flag --mode (Surface 6 v2 delivery_mode). cueapi-cli only has it on `message-to`, not `messages send`; cli upstream port pending then Action follow-up.",
-      "Missing flag --notify (PR #619 §17 BCC-light). cueapi-cli upstream port pending then Action follow-up."
-    ],
+    "messages-send": [],
     "fire": [],
     "executions-list": [
       "Missing flags --outcome-state / --result-type / --has-evidence / --triggered-by. cueapi-cli PR #27 added these; Action drift open."

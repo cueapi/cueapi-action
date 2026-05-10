@@ -96,6 +96,21 @@ inputs:
   merge-strategy:
     description: 'How payload-override combines with the cue stored payload: merge (default, server-side) or replace'
     required: false
+  send-at:
+    description: |
+      Optional ISO 8601 timestamp to schedule a future fire (used by `fire` — hosted PR #618)
+      OR a future message send (used by `messages-send` — hosted PR #623, §13).
+      Omitted = run-now/send-now (server default). Past timestamps are forgiving fallback
+      (treated as run/send now). Same semantics across cue-fire and messages-send.
+    required: false
+  exit-criteria:
+    description: |
+      Required-assertion keys for §14 work-verification-light on `fire` (hosted PR #632).
+      Whitespace-separated list (e.g. "key1 key2 key3"). Receiver MUST report values
+      for every key under outcome.assertions; missing keys mark the execution
+      verification_failed. Pass an empty string to opt out of cue-level
+      required_assertions for this fire. Max 20 keys.
+    required: false
 
   # Executions lifecycle inputs (cueapi 0.2.0+).
   execution-id:
@@ -247,6 +262,9 @@ runs:
         # Fire + executions inputs (cueapi 0.2.0+).
         PAYLOAD_OVERRIDE: ${{ inputs.payload-override }}
         MERGE_STRATEGY: ${{ inputs.merge-strategy }}
+        # Per-fire/per-message scheduling + work-verification (PR #618 / #623 / #632).
+        SEND_AT: ${{ inputs.send-at }}
+        EXIT_CRITERIA: ${{ inputs.exit-criteria }}
         EXECUTION_ID: ${{ inputs.execution-id }}
         WORKER_ID: ${{ inputs.worker-id }}
         TASK: ${{ inputs.task }}
@@ -329,6 +347,20 @@ runs:
             [ -n "$CUE_ID" ]           && cmd+=("$CUE_ID")
             [ -n "$PAYLOAD_OVERRIDE" ] && cmd+=(--payload-override "$PAYLOAD_OVERRIDE")
             [ -n "$MERGE_STRATEGY" ]   && cmd+=(--merge-strategy "$MERGE_STRATEGY")
+            [ -n "$SEND_AT" ]          && cmd+=(--send-at "$SEND_AT")
+            # Whitespace-separated list of assertion keys → repeated --exit-criteria
+            # flags (the CLI uses click's `multiple=True`, so each key needs its own
+            # flag invocation). Empty string === field not passed, in which case
+            # the cue-level required_assertions apply unchanged. To clear cue-level
+            # requirements for this fire from the action, you'd need to invoke the
+            # CLI directly (the GitHub Actions input layer cannot pass an explicit
+            # empty string distinct from "not set").
+            if [ -n "$EXIT_CRITERIA" ]; then
+              # shellcheck disable=SC2086 # intentional word-splitting on whitespace
+              for key in $EXIT_CRITERIA; do
+                cmd+=(--exit-criteria "$key")
+              done
+            fi
             ;;
           # Executions subgroup (cueapi 0.2.0+) — these commands map to
           # ``cueapi executions <sub>`` (group + subcommand). Override
@@ -448,6 +480,7 @@ runs:
             [ -n "$REPLY_TO_AGENT" ]   && cmd+=(--reply-to-agent "$REPLY_TO_AGENT")
             [ -n "$METADATA" ]         && cmd+=(--metadata "$METADATA")
             [ -n "$IDEMPOTENCY_KEY" ]  && cmd+=(--idempotency-key "$IDEMPOTENCY_KEY")
+            [ -n "$SEND_AT" ]          && cmd+=(--send-at "$SEND_AT")
             ;;
           messages-get)
             cmd=(cueapi messages get)

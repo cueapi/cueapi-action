@@ -239,6 +239,15 @@ inputs:
       ONLY when the inline `body` is verified-literal (e.g., shell-tutorial
       example legitimately containing $(...) text).
     required: false
+  no-verify:
+    description: |
+      Set "true" to opt out of Phase 2 body-verify auto-echo (Mike body-
+      verify directive 2026-05-11). Default is verify-on: cueapi-cli sends
+      X-CueAPI-Verify-Echo header + checks substrate-echoed body matches
+      sent body, failing the Action step on drift. Use --no-verify when
+      perf-sensitive flows make the extra response-payload byte-overhead
+      undesirable (rare; one substrate roundtrip already includes the echo).
+    required: false
   subject:
     description: 'Optional message subject (max 255 chars) for messages-send'
     required: false
@@ -383,6 +392,7 @@ runs:
         MESSAGE_FILE: ${{ inputs.message-file }}
         BODY_STDIN: ${{ inputs.body-stdin }}
         ALLOW_INLINE_METACHARS: ${{ inputs.allow-inline-metachars }}
+        NO_VERIFY: ${{ inputs.no-verify }}
         SUBJECT: ${{ inputs.subject }}
         REPLY_TO_MESSAGE: ${{ inputs.reply-to-message }}
         PRIORITY: ${{ inputs.priority }}
@@ -588,6 +598,7 @@ runs:
             [ -n "$MESSAGE_FILE" ]     && cmd+=(--message-file "$MESSAGE_FILE")
             [ "$BODY_STDIN" = "true" ] && cmd+=(--body-stdin)
             [ "$ALLOW_INLINE_METACHARS" = "true" ] && cmd+=(--allow-inline-metachars)
+            [ "$NO_VERIFY" = "true" ] && cmd+=(--no-verify)
             [ -n "$BODY" ]             && cmd+=(--body "$BODY")
             [ -n "$SUBJECT" ]          && cmd+=(--subject "$SUBJECT")
             [ -n "$REPLY_TO_MESSAGE" ] && cmd+=(--reply-to "$REPLY_TO_MESSAGE")
@@ -624,6 +635,7 @@ runs:
             [ -n "$MESSAGE_FILE" ]     && cmd+=(--message-file "$MESSAGE_FILE")
             [ "$BODY_STDIN" = "true" ] && cmd+=(--body-stdin)
             [ "$ALLOW_INLINE_METACHARS" = "true" ] && cmd+=(--allow-inline-metachars)
+            [ "$NO_VERIFY" = "true" ] && cmd+=(--no-verify)
             [ -n "$BODY" ]             && cmd+=(--body "$BODY")
             [ -n "$SUBJECT" ]          && cmd+=(--subject "$SUBJECT")
             [ -n "$REPLY_TO_MESSAGE" ] && cmd+=(--reply-to "$REPLY_TO_MESSAGE")

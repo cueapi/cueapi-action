@@ -213,7 +213,40 @@ inputs:
       match against display_name and slug). Required for messages-send and message-to.
     required: false
   body:
-    description: 'Message body (1-32768 chars). Required for messages-send.'
+    description: |
+      Message body (1-32768 chars) for messages-send / message-to.
+      Inline; auto-rejected by cueapi-cli when content contains shell metacharacters
+      ($(...), backticks, ${VAR}) — use `message-file` or `body-stdin` instead.
+      Provide exactly one of body / message-file / body-stdin.
+    required: false
+  message-file:
+    description: |
+      RECOMMENDED for content with shell metacharacters. Path to a file
+      containing the message body. cueapi-cli reads byte-identical (zero
+      shell interpolation). Mint pattern: heredoc with single-quoted EOF
+      marker → file → pass path. Phase 3 of body-verify defense (Mike
+      directive 2026-05-11).
+    required: false
+  body-stdin:
+    description: |
+      Set "true" to read message body from stdin instead of inline.
+      Use with a preceding step that writes the body to a file + then
+      pipes via `< $FILE` in your workflow.
+    required: false
+  allow-inline-metachars:
+    description: |
+      Set "true" to override cueapi-cli's Layer 3 force-file guard. Use
+      ONLY when the inline `body` is verified-literal (e.g., shell-tutorial
+      example legitimately containing $(...) text).
+    required: false
+  no-verify:
+    description: |
+      Set "true" to opt out of Phase 2 body-verify auto-echo (Mike body-
+      verify directive 2026-05-11). Default is verify-on: cueapi-cli sends
+      X-CueAPI-Verify-Echo header + checks substrate-echoed body matches
+      sent body, failing the Action step on drift. Use --no-verify when
+      perf-sensitive flows make the extra response-payload byte-overhead
+      undesirable (rare; one substrate roundtrip already includes the echo).
     required: false
   subject:
     description: 'Optional message subject (max 255 chars) for messages-send'
@@ -356,6 +389,10 @@ runs:
         FROM_AGENT: ${{ inputs.from-agent }}
         TO_AGENT: ${{ inputs.to-agent }}
         BODY: ${{ inputs.body }}
+        MESSAGE_FILE: ${{ inputs.message-file }}
+        BODY_STDIN: ${{ inputs.body-stdin }}
+        ALLOW_INLINE_METACHARS: ${{ inputs.allow-inline-metachars }}
+        NO_VERIFY: ${{ inputs.no-verify }}
         SUBJECT: ${{ inputs.subject }}
         REPLY_TO_MESSAGE: ${{ inputs.reply-to-message }}
         PRIORITY: ${{ inputs.priority }}
@@ -554,6 +591,14 @@ runs:
             cmd=(cueapi messages send)
             [ -n "$FROM_AGENT" ]       && cmd+=(--from "$FROM_AGENT")
             [ -n "$TO_AGENT" ]         && cmd+=(--to "$TO_AGENT")
+            # Phase 3 body sources (force-file mode in cueapi-cli, Mike
+            # directive 2026-05-11). Exactly one of: --message-file (recommended;
+            # zero shell interpolation), --body-stdin, --body inline (auto-
+            # rejected by cueapi-cli if it contains $(...) / backticks / ${VAR}).
+            [ -n "$MESSAGE_FILE" ]     && cmd+=(--message-file "$MESSAGE_FILE")
+            [ "$BODY_STDIN" = "true" ] && cmd+=(--body-stdin)
+            [ "$ALLOW_INLINE_METACHARS" = "true" ] && cmd+=(--allow-inline-metachars)
+            [ "$NO_VERIFY" = "true" ] && cmd+=(--no-verify)
             [ -n "$BODY" ]             && cmd+=(--body "$BODY")
             [ -n "$SUBJECT" ]          && cmd+=(--subject "$SUBJECT")
             [ -n "$REPLY_TO_MESSAGE" ] && cmd+=(--reply-to "$REPLY_TO_MESSAGE")
@@ -586,6 +631,11 @@ runs:
             cmd=(cueapi message-to)
             [ -n "$TO_AGENT" ]         && cmd+=("$TO_AGENT")  # positional recipient
             [ -n "$FROM_AGENT" ]       && cmd+=(--from "$FROM_AGENT")
+            # Phase 3 body sources — parity with messages-send.
+            [ -n "$MESSAGE_FILE" ]     && cmd+=(--message-file "$MESSAGE_FILE")
+            [ "$BODY_STDIN" = "true" ] && cmd+=(--body-stdin)
+            [ "$ALLOW_INLINE_METACHARS" = "true" ] && cmd+=(--allow-inline-metachars)
+            [ "$NO_VERIFY" = "true" ] && cmd+=(--no-verify)
             [ -n "$BODY" ]             && cmd+=(--body "$BODY")
             [ -n "$SUBJECT" ]          && cmd+=(--subject "$SUBJECT")
             [ -n "$REPLY_TO_MESSAGE" ] && cmd+=(--reply-to "$REPLY_TO_MESSAGE")

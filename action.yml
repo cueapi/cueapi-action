@@ -115,6 +115,20 @@ inputs:
       verification_failed. Pass an empty string to opt out of cue-level
       required_assertions for this fire. Max 20 keys.
     required: false
+  verify:
+    description: |
+      Set "true" to OPT IN to Phase 2 body-verify on `fire` (parity with
+      cueapi-cli #55 + cueapi-python #41, Mike body-verify directive
+      2026-05-11). When set, cueapi-cli sends X-CueAPI-Verify-Echo header
+      + checks substrate-echoed body matches sent body, failing the Action
+      step (exit 7) on drift. Default OFF for fire because substrate
+      /v1/cues/{id}/fire echoes a pydantic-after-parse body that may
+      include server-side default-population, causing spurious diff vs
+      the CLI's canonical-JSON serialization. Opt in when you know your
+      payload-override serialization matches substrate echo semantics.
+      NOTE: distinct from `no-verify` (which is for messages — default-on
+      opt-out); fire is default-off opt-in.
+    required: false
 
   # Executions lifecycle inputs (cueapi 0.2.0+).
   execution-id:
@@ -364,6 +378,7 @@ runs:
         # Per-fire/per-message scheduling + work-verification (PR #618 / #623 / #632).
         SEND_AT: ${{ inputs.send-at }}
         EXIT_CRITERIA: ${{ inputs.exit-criteria }}
+        VERIFY: ${{ inputs.verify }}
         EXECUTION_ID: ${{ inputs.execution-id }}
         WORKER_ID: ${{ inputs.worker-id }}
         TASK: ${{ inputs.task }}
@@ -459,6 +474,11 @@ runs:
             [ -n "$MERGE_STRATEGY" ]   && cmd+=(--merge-strategy "$MERGE_STRATEGY")
             [ -n "$SEND_AT" ]          && cmd+=(--send-at "$SEND_AT")
             [ -n "$IDEMPOTENCY_KEY" ]  && cmd+=(--idempotency-key "$IDEMPOTENCY_KEY")
+            # Phase 2 body-verify opt-in for fire (cueapi-cli #55, Mike directive
+            # 2026-05-11). Default OFF — substrate echoes parsed-after-default body
+            # that would cause spurious mismatches for the typical caller. Opt in
+            # when the caller knows substrate echo matches their serialization.
+            [ "$VERIFY" = "true" ]     && cmd+=(--verify)
             # Whitespace-separated list of assertion keys → repeated --exit-criteria
             # flags (the CLI uses click's `multiple=True`, so each key needs its own
             # flag invocation). Empty string === field not passed, in which case

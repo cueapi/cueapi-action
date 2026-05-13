@@ -34,7 +34,7 @@
     "executions-claim-next":    "cueapi executions claim-next — covers --worker-id, --task",
     "executions-heartbeat":     "cueapi executions heartbeat <id> --worker-id <id>",
     "executions-report-outcome":"cueapi executions report-outcome <id> — covers --success/--failure, --external-id, --result-url, --summary",
-    "agents-create":     "cueapi agents create — covers --slug, --display-name, --description, --webhook-url (PR #5, merged 2026-05-07)",
+    "agents-create":     "cueapi agents create — covers --slug, --display-name, --description, --webhook-url (PR #5, merged 2026-05-07), --parent-agent-id (agent-id-split refactor 2026-05-12; cueapi-cli #56)",
     "agents-list":       "cueapi agents list — covers --status, --online-only (mutex), --limit, --offset (PR #5, merged 2026-05-07)",
     "agents-get":        "cueapi agents get <ref> — also exposed as agents-describe verb alias per cueapi-cli #40 (PR #5, merged 2026-05-07)",
     "agents-describe":   "Verb alias for agents-get (PR #5, merged 2026-05-07)",
@@ -42,11 +42,11 @@
     "agents-delete":     "cueapi agents delete <ref> — soft delete (PR #5, merged 2026-05-07)",
     "agents-webhook-secret-get":"cueapi agents webhook-secret get <ref> (PR #5, merged 2026-05-07)",
     "agents-webhook-secret-regenerate":"cueapi agents webhook-secret regenerate <ref> --yes — destructive (rotates webhook signing secret + drops old one immediately). The CLI sends X-Confirm-Destructive: true; action passes --yes since CI has no interactive confirm. Ported from Backlog row cmousycjv (Drift-audit deferred 2026-05-07; ported 2026-05-09).",
-    "messages-send":"cueapi messages send — covers --from, --to, --body, --subject, --reply-to, --priority, --expects-reply, --reply-to-agent, --metadata, --idempotency-key, --send-at (PR #623), --mode (Surface 6 v2 delivery_mode; cueapi-cli #49 added it for parity with message-to, this PR wires through), --notify (PR #619 BCC-light; cueapi-cli #49 added it, this PR wires through whitespace-separated → repeated --notify flags). Ported via PR #6 (2026-05-07) + this PR for the --mode/--notify wire-through.",
+    "messages-send":"cueapi messages send — covers --from, --to, --body, --subject, --reply-to, --priority, --expects-reply, --reply-to-agent, --metadata, --idempotency-key, --send-at (PR #623), --mode (Surface 6 v2 delivery_mode; cueapi-cli #49 added it for parity with message-to, this PR wires through), --notify (PR #619 BCC-light; cueapi-cli #49 added it, this PR wires through whitespace-separated → repeated --notify flags), --live-fallback-mode (agent-id-split refactor 2026-05-12; cueapi-cli #56). Ported via PR #6 (2026-05-07) + this PR for the --mode/--notify wire-through.",
     "messages-get":"cueapi messages get <msg_id> — single-message reveal (PR #6, merged 2026-05-07).",
     "messages-read":"cueapi messages read <msg_id> — mark message read (PR #6, merged 2026-05-07).",
     "messages-ack":"cueapi messages ack <msg_id> — acknowledge message (PR #6, merged 2026-05-07).",
-    "message-to":"cueapi message-to <recipient> — top-level ergonomic alias for messaging primitive sends (cueapi-cli #40). Action reuses `to-agent` as the positional recipient (also accepts bare name / slug; CLI does roster lookup case-insensitive). Covers --from, --body, --subject, --reply-to, --priority, --expects-reply, --reply-to-agent, --metadata, --idempotency-key, --send-at (PR #623), --mode (Surface 6 v2; default-omit `auto`). Ported from Backlog rows cmousyb4a + cmousyqhy (Drift-audit deferred 2026-05-07; ported via this PR)."
+    "message-to":"cueapi message-to <recipient> — top-level ergonomic alias for messaging primitive sends (cueapi-cli #40). Action reuses `to-agent` as the positional recipient (also accepts bare name / slug; CLI does roster lookup case-insensitive). Covers --from, --body, --subject, --reply-to, --priority, --expects-reply, --reply-to-agent, --metadata, --idempotency-key, --send-at (PR #623), --mode (Surface 6 v2; default-omit `auto`), --live-fallback-mode (agent-id-split refactor 2026-05-12; cueapi-cli #56; default-omit `fallback_to_background`). Ported from Backlog rows cmousyb4a + cmousyqhy (Drift-audit deferred 2026-05-07; ported via this PR)."
   },
 
   "commands_missing_from_action": {

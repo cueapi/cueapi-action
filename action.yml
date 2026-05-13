@@ -314,6 +314,27 @@ inputs:
       agent ref (opaque agt_xxx or slug-form agent@user). Self-bcc is silently de-duped
       server-side. Notifications skip the monthly quota and are pinned to priority=3.
     required: false
+  live-fallback-mode:
+    description: |
+      Agent-id-split refactor (2026-05-12) — controls behavior when the recipient is a
+      Live-sibling agent and its Live session is silent (no fresh heartbeat).
+      Used by `messages-send` and `message-to`. One of:
+        live_only = message queues against the Live agent until that specific Live session attaches
+        fallback_to_background (default) = substrate looks up the BG sibling via parent_agent_id and routes there
+      The action omits the flag entirely when set to `fallback_to_background` (or unset)
+      to keep wire-format identical to pre-refactor senders.
+      Parity with cueapi-cli `messages send --live-fallback-mode` (#56).
+      Design Dock: https://trydock.ai/workspaces/agent-id-split-refactor-2026-05-12
+    required: false
+  parent-agent-id:
+    description: |
+      Agent-id-split refactor (2026-05-12) — link this new agent as a sibling of the given
+      parent agent (`agt_xxx` opaque ID). Used by `agents-create` when creating a Live
+      sibling for an existing BG agent: pass the BG agent's id and substrate stores the FK
+      so the router can fall back from Live to BG when the Live session is silent (see
+      `live-fallback-mode`). Omit for standalone (parent) agents. Substrate enforces FK
+      validity. Parity with cueapi-cli `agents create --parent-agent-id` (#56).
+    required: false
 
 outputs:
   result:
@@ -417,6 +438,8 @@ runs:
         IDEMPOTENCY_KEY: ${{ inputs.idempotency-key }}
         MODE: ${{ inputs.mode }}
         NOTIFY: ${{ inputs.notify }}
+        LIVE_FALLBACK_MODE: ${{ inputs.live-fallback-mode }}
+        PARENT_AGENT_ID: ${{ inputs.parent-agent-id }}
       run: |
         set -euo pipefail
         cmd=(cueapi "$COMMAND")
@@ -559,6 +582,10 @@ runs:
             [ -n "$DISPLAY_NAME" ] && cmd+=(--display-name "$DISPLAY_NAME")
             [ -n "$DESCRIPTION" ]  && cmd+=(--description "$DESCRIPTION")
             [ -n "$WEBHOOK_URL" ]  && cmd+=(--webhook-url "$WEBHOOK_URL")
+            # Agent-id-split refactor (2026-05-12) — pass-through FK
+            # for Live-sibling creates. Default-omit when unset; standalone
+            # (parent) agents create with unchanged wire format.
+            [ -n "$PARENT_AGENT_ID" ] && cmd+=(--parent-agent-id "$PARENT_AGENT_ID")
             ;;
           agents-list)
             cmd=(cueapi agents list)
@@ -641,6 +668,12 @@ runs:
                 cmd+=(--notify "$ref")
               done
             fi
+            # Agent-id-split refactor (2026-05-12) — default-omit when
+            # value matches the substrate default (fallback_to_background).
+            # Same default-omit pattern as --mode auto.
+            if [ -n "$LIVE_FALLBACK_MODE" ] && [ "$LIVE_FALLBACK_MODE" != "fallback_to_background" ]; then
+              cmd+=(--live-fallback-mode "$LIVE_FALLBACK_MODE")
+            fi
             ;;
           message-to)
             # Top-level ergonomic alias for messaging primitive sends. Accepts
@@ -677,6 +710,11 @@ runs:
               for ref in $NOTIFY; do
                 cmd+=(--notify "$ref")
               done
+            fi
+            # Agent-id-split refactor (2026-05-12) — parity with
+            # messages-send. Default-omit when matching substrate default.
+            if [ -n "$LIVE_FALLBACK_MODE" ] && [ "$LIVE_FALLBACK_MODE" != "fallback_to_background" ]; then
+              cmd+=(--live-fallback-mode "$LIVE_FALLBACK_MODE")
             fi
             ;;
           messages-get)
